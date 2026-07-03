@@ -1,7 +1,7 @@
 ---
 name: angular
 description: Semantic Angular guardrails for dependency injection, subscription lifecycle, and change detection discipline.
-appliesTo: ["**/*.component.ts", "**/*.module.ts"]
+appliesTo: ["**/*.component.ts", "**/*.module.ts", "**/*.service.ts"]
 stacks: ["angular", "frontend"]
 source: original
 ---

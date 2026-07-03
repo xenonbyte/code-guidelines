@@ -1,7 +1,7 @@
 ---
 name: nextjs
 description: Architectural guardrails for the Next.js App Router boundary between Server and Client Components, secrets, and data fetching.
-appliesTo: ["**/app/**/*.tsx", "**/pages/**/*.tsx", "**/next.config.*"]
+appliesTo: ["**/app/**/*.tsx", "**/pages/**/*.tsx", "app/**/route.ts", "**/next.config.*"]
 stacks: ["nextjs", "frontend"]
 source: original
 ---
