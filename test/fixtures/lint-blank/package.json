@@ -1,0 +1,6 @@
+{
+  "name": "lint-blank-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A blank JS project with no lint configuration of any kind — selects the js-ts baseline for first-time arming (SPEC-LINT-001)."
+}
