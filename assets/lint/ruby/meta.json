@@ -1,0 +1,12 @@
+{
+  "lang": "ruby",
+  "tools": ["rubocop"],
+  "files": [".rubocop.yml"],
+  "enforced": [
+    "extensions are loaded via plugins: (RuboCop >=1.72), not the deprecated require: mechanism",
+    "AllCops.NewCops: enable opts into new cops by default as RuboCop releases them",
+    "Style/FrozenStringLiteralComment, Style/StringLiterals, Metrics/MethodLength, Metrics/ClassLength, Metrics/AbcSize, and Layout/LineLength are machine-enforced",
+    "Lint/UnusedMethodArgument and Lint/UnreachableCode catch dead/unreachable code"
+  ],
+  "note": "plugins: requires the referenced gems (rubocop-performance, rubocop-rspec) to be present in the target project's Gemfile; this baseline does not install them (SCOPE-OUT-003)."
+}

@@ -1,0 +1,38 @@
+# Extensions are loaded via `plugins:` (RuboCop >=1.72), not the deprecated `require:`.
+plugins:
+  - rubocop-performance
+  - rubocop-rspec
+
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 3.3
+  Exclude:
+    - 'vendor/**/*'
+    - 'db/schema.rb'
+
+Style/FrozenStringLiteralComment:
+  Enabled: true
+
+Style/Documentation:
+  Enabled: false
+
+Style/StringLiterals:
+  EnforcedStyle: single_quotes
+
+Metrics/MethodLength:
+  Max: 15
+
+Metrics/ClassLength:
+  Max: 200
+
+Metrics/AbcSize:
+  Max: 20
+
+Layout/LineLength:
+  Max: 120
+
+Lint/UnusedMethodArgument:
+  Enabled: true
+
+Lint/UnreachableCode:
+  Enabled: true

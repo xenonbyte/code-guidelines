@@ -1,0 +1,23 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# ktlint config lives in .editorconfig as of ktlint >=0.49 (standalone .ktlint.yml is gone).
+ktlint_code_style = ktlint_official
+ktlint_standard_no-wildcard-imports = enabled
+ktlint_standard_filename = enabled
+ktlint_standard_max-line-length = enabled
+ktlint_standard_final-newline = enabled
+ktlint_standard_no-unused-imports = enabled
+ktlint_standard_trailing-comma-on-call-site = enabled
+ktlint_standard_trailing-comma-on-declaration-site = enabled
+ktlint_function_signature_body_expression_wrapping = multiline

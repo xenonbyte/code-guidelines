@@ -1,0 +1,12 @@
+{
+  "lang": "php",
+  "tools": ["PHP-CS-Fixer", "PHPStan"],
+  "files": [".php-cs-fixer.dist.php", "phpstan.neon"],
+  "enforced": [
+    ".php-cs-fixer.dist.php uses the current v3 Config-object form; the deprecated .php_cs filename/return-array form is not used",
+    "@PSR12 ruleset plus strict_comparison, strict_param, and declare_strict_types are machine-enforced formatting/style",
+    "no_unused_imports and ordered_imports are machine-enforced",
+    "phpstan.neon level: 10 is PHPStan 2.x's maximum strictness (the ceiling was raised from 9 to 10)",
+    "PHPStan level 10 machine-enforces strict handling of mixed types, unresolvable types, and implicit nullability"
+  ]
+}

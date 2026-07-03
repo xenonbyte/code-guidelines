@@ -1,0 +1,41 @@
+# Uses only_rules (current) instead of the removed whitelist_rules key.
+only_rules:
+  - force_cast
+  - force_try
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - line_length
+  - identifier_name
+  - type_name
+  - unused_import
+  - unused_declaration
+  - unused_closure_parameter
+  - empty_count
+  - empty_string
+  - trailing_whitespace
+  - trailing_newline
+  - vertical_whitespace
+  - closure_spacing
+  - colon
+  - comma
+  - control_statement
+
+line_length:
+  warning: 120
+  error: 200
+
+identifier_name:
+  min_length:
+    warning: 2
+  max_length:
+    warning: 40
+    error: 60
+
+type_name:
+  min_length: 3
+  max_length: 50
+
+excluded:
+  - .build
+  - Pods
+  - Carthage

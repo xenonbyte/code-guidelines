@@ -1,0 +1,13 @@
+{
+  "lang": "kotlin",
+  "tools": ["ktlint", "detekt"],
+  "files": [".editorconfig", "detekt.yml"],
+  "enforced": [
+    "ktlint config lives in .editorconfig under [*.{kt,kts}] as ktlint_* properties (ktlint >=0.49 dropped the standalone .ktlint.yml file)",
+    "ktlint_code_style = ktlint_official plus ktlint_standard_* toggles (no-wildcard-imports, max-line-length, no-unused-imports, trailing-comma) are machine-enforced formatting",
+    "detekt.yml complexity thresholds (ComplexMethod, LongMethod, LongParameterList, NestedBlockDepth, TooManyFunctions) are machine-enforced",
+    "detekt exceptions rules (TooGenericExceptionCaught, SwallowedException) and potential-bugs (UnsafeCallOnNullableType) catch correctness bugs",
+    "detekt style rules (ForbiddenComment, MagicNumber, MaxLineLength, WildcardImport) are machine-enforced"
+  ],
+  "note": "detekt.yml targets the detekt 1.23.x stable config schema; detekt 2.0 changes the Gradle plugin id but keeps this config shape."
+}

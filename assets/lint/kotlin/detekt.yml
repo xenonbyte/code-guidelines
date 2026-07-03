@@ -1,0 +1,81 @@
+build:
+  maxIssues: 0
+  excludeCorrectable: false
+
+config:
+  validation: true
+  warningsAsErrors: false
+
+processors:
+  active: true
+
+console-reports:
+  active: true
+
+output-reports:
+  active: true
+
+complexity:
+  active: true
+  ComplexCondition:
+    active: true
+    threshold: 4
+  ComplexMethod:
+    active: true
+    threshold: 15
+  LongMethod:
+    active: true
+    threshold: 60
+  LongParameterList:
+    active: true
+    functionThreshold: 6
+    constructorThreshold: 7
+  NestedBlockDepth:
+    active: true
+    threshold: 4
+  TooManyFunctions:
+    active: true
+    thresholdInClasses: 20
+
+exceptions:
+  active: true
+  TooGenericExceptionCaught:
+    active: true
+  SwallowedException:
+    active: true
+  ThrowingExceptionsWithoutMessageOrCause:
+    active: true
+
+potential-bugs:
+  active: true
+  UnsafeCallOnNullableType:
+    active: true
+  UnconditionalJumpStatementInLoop:
+    active: true
+  UnreachableCode:
+    active: true
+
+style:
+  active: true
+  ForbiddenComment:
+    active: true
+    values: ['FIXME:', 'STOPSHIP:']
+  MagicNumber:
+    active: true
+    ignoreNumbers: ['-1', '0', '1', '2']
+  MaxLineLength:
+    active: true
+    maxLineLength: 120
+  UnusedPrivateMember:
+    active: true
+  WildcardImport:
+    active: true
+
+naming:
+  active: true
+  FunctionNaming:
+    active: true
+  VariableNaming:
+    active: true
+  ClassNaming:
+    active: true

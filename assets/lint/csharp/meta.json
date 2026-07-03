@@ -1,0 +1,14 @@
+{
+  "lang": "csharp",
+  "tools": ["Roslyn analyzers", "dotnet-format"],
+  "files": [".editorconfig", "Directory.Build.props"],
+  "enforced": [
+    "Directory.Build.props sets AnalysisLevel=latest-all — enables the latest Roslyn analyzer ruleset for build-time analysis, not just IDE-time squiggles",
+    "EnforceCodeStyleInBuild=true — .editorconfig csharp_style_*/dotnet_style_* rules run on `dotnet build`, not only `dotnet format`",
+    "TreatWarningsAsErrors=true — any analyzer or style violation fails the build (machine-enforced, not advisory)",
+    "csharp_prefer_braces, csharp_style_namespace_declarations=file_scoped, and csharp_style_prefer_pattern_matching are machine-enforced style",
+    "dotnet_style_readonly_field, dotnet_style_require_accessibility_modifiers, and the interface-naming rule (I-prefix) are machine-enforced",
+    "Nullable=enable turns on nullable reference type analysis project-wide"
+  ],
+  "note": "Roslyn analyzer diagnostics honor .editorconfig severities on CLI builds under .NET SDK 9+; this baseline relies on in-box analyzers, no NuGet package required."
+}

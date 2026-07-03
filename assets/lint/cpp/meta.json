@@ -1,0 +1,13 @@
+{
+  "lang": "cpp",
+  "tools": ["clang-format", "clang-tidy"],
+  "files": [".clang-format", ".clang-tidy"],
+  "enforced": [
+    "clang-tidy CheckOptions is a list of {key, value} entries (current clang-tidy schema) configuring identifier-naming and cppcoreguidelines checks",
+    "bugprone-*, clang-analyzer-*, cppcoreguidelines-*, performance-*, modernize-*, and readability-* check groups are machine-enforced",
+    "WarningsAsErrors escalates bugprone-* and clang-analyzer-* findings to build failures",
+    "readability-identifier-naming.* options machine-enforce class/struct/function/variable/constant casing",
+    "clang-format BasedOnStyle: Google with ColumnLimit 100, SortIncludes, and BinPackArguments/Parameters: false is machine-enforced formatting"
+  ],
+  "note": "Exact check availability varies slightly by LLVM major version; verify with `clang-tidy --dump-config` against the target toolchain."
+}
