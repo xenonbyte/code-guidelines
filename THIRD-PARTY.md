@@ -12,7 +12,9 @@ the 48 rule files is a verbatim copy, near-verbatim copy, or line-for-line adapt
 upstream text. Each file's frontmatter carries a `source` field; for every file currently in this
 library that value is `original`, meaning it was distilled and written from scratch rather than
 copied from an upstream `.mdc`/rule file — see the frontmatter of any file under
-`assets/library/*.md` to confirm this directly.
+`assets/library/*.md` to confirm this directly. Where a rule states a framework-specific or
+security constraint, its correctness was cross-checked against that project's official documentation
+and, for security items, OWASP guidance — those were consulted to verify facts, not copied as text.
 
 That said, the *idea* of a curated, per-stack guardrail rule library — and the general shape of
 what such a rule file should contain (hard constraints before ecosystem idioms, one file per
