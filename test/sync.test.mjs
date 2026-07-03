@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
+  chmodSync,
   copyFileSync,
   existsSync,
   lstatSync,
@@ -116,12 +117,13 @@ test('detect: detect-go fixture → go (+ always-on core)', () => {
   );
 });
 
-test('detect: detect-monorepo aggregate scan → react + a11y via two-pass tag emission', () => {
+test('detect: detect-monorepo aggregate scan → react + a11y + security via two-pass tag emission', () => {
   const hits = detect(join(FIXTURES, 'detect-monorepo'));
   const ids = hits.map((h) => h.id).filter((id) => id !== 'guardrails-core');
   // react matches via packageDeps (root package.json) and emits the "frontend" tag;
-  // a11y (requiresTags:["frontend"]) resolves in pass 2.
-  assert.deepEqual(ids.sort(), ['a11y', 'react']);
+  // a11y (requiresTags:["frontend"]) resolves in pass 2, as does security (requiresTags is OR of
+  // ["backend","frontend"] — Task-10 Fix Wave 1 — so a frontend-only repo satisfies it too).
+  assert.deepEqual(ids.sort(), ['a11y', 'react', 'security']);
 });
 
 test('detect: excluded dirs (node_modules/dist/…) are NOT scanned', () => {
@@ -148,6 +150,39 @@ test('detect: bare-basename files predicate matches anywhere in the tree (monore
   writeF(join(repo, 'packages', 'svc', 'go.mod'), 'module x\n');
   const ids = detect(repo).map((h) => h.id);
   assert.ok(ids.includes('go'), 'nested go.mod detected via aggregate scan');
+});
+
+test('detect: nested-only package.json (no root package.json) is aggregated by scanRepo', () => {
+  // Locks in the scanRepo `join(abs, name)` fix for monorepo packageDeps detection: only a
+  // subdirectory package.json exists, no root-level one.
+  const repo = tmpDir('cg-nested-pkg-');
+  writeF(join(repo, 'packages', 'ui', 'package.json'), JSON.stringify({ dependencies: { vue: '^3.4.0' } }));
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('vue'), 'vue detected via a nested-only package.json');
+  assert.ok(ids.includes('a11y'), 'a11y resolves via the frontend tag emitted by nested vue detection');
+});
+
+// ---------------------------------------------------------------------------------------------
+// SPEC-DETECT-001 — requiresTags is OR (Task-10 Fix Wave 1): security:["backend","frontend"]
+// applies to EITHER a backend-only or a frontend-only repo, not only a full-stack one.
+// ---------------------------------------------------------------------------------------------
+
+test('detect: requiresTags OR — security applies in a backend-only repo', () => {
+  const repo = tmpDir('cg-sec-backend-');
+  writeF(join(repo, 'package.json'), JSON.stringify({ dependencies: { express: '^4.19.0' } }));
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('node-api'), 'node-api (backend) detected');
+  assert.ok(ids.includes('security'), 'security applies via the backend-only OR branch');
+  assert.ok(!ids.includes('a11y'), 'a11y (frontend-gated) must NOT apply to a backend-only repo');
+});
+
+test('detect: requiresTags OR — security applies in a frontend-only repo', () => {
+  const repo = tmpDir('cg-sec-frontend-');
+  writeF(join(repo, 'package.json'), JSON.stringify({ dependencies: { react: '^18.2.0' } }));
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('react'), 'react (frontend) detected');
+  assert.ok(ids.includes('security'), 'security applies via the frontend-only OR branch');
+  assert.ok(ids.includes('a11y'), 'a11y also applies (frontend tag)');
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -367,6 +402,48 @@ test('maintainHostBlock: malformed (duplicate) markers → aborts, zero writes',
 });
 
 // ---------------------------------------------------------------------------------------------
+// SPEC-HOSTFMT-001 — glob-conditioned pointers (Task-10 Fix Wave 1)
+// ---------------------------------------------------------------------------------------------
+
+test('sync: host block renders a glob-conditioned pointer for a rule declaring appliesTo, generic fallback otherwise', async () => {
+  const REACT_RULE = [
+    '---',
+    'name: react',
+    'description: React rules',
+    'appliesTo:',
+    '  - "*.tsx"',
+    '  - "*.jsx"',
+    'stacks: [react]',
+    'source: original',
+    '---',
+    '# React',
+    'Body.',
+    '',
+  ].join('\n');
+  const assetRoot = buildAssetRoot({
+    library: { 'guardrails-core.md': LIB['guardrails-core.md'], 'react.md': REACT_RULE },
+  });
+  const repo = tmpDir('cg-hostfmt-glob-');
+  writeF(join(repo, 'package.json'), JSON.stringify({ dependencies: { react: '^18.2.0' } }));
+  writeF(join(repo, 'CLAUDE.md'), '# App\n');
+
+  const r = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
+  assert.equal(r.exitCode, 0);
+  const claudeMd = readFileSync(join(repo, 'CLAUDE.md'), 'utf8');
+  assert.ok(
+    claudeMd.includes('Before editing `*.tsx`, `*.jsx`, read `.code-guidelines/react.md`.'),
+    'react pointer is trigger-conditioned on its declared globs',
+  );
+  assert.ok(
+    claudeMd.includes('Before related edits, read `.code-guidelines/guardrails-core.md`.'),
+    'guardrails-core (no appliesTo) falls back to the generic phrasing',
+  );
+  const blockMatch = claudeMd.match(/<!-- code-guidelines:begin -->[\s\S]*?<!-- code-guidelines:end -->/);
+  assert.ok(blockMatch, 'managed block present');
+  assert.ok(blockMatch[0].split('\n').length <= 25, 'host block stays within the 25-line budget');
+});
+
+// ---------------------------------------------------------------------------------------------
 // SPEC-SYNC-001 / SPEC-STATUS-001 — full pipeline
 // ---------------------------------------------------------------------------------------------
 
@@ -473,14 +550,21 @@ test('sync: precheck — missing current-platform entry file → exit 3, zero wr
   assert.equal(existsSync(join(repo, '.code-guidelines')), false, 'zero writes on precheck abort');
 });
 
-test('sync: malformed host-block marker → exit 4, zero writes', async () => {
+test('sync: malformed host-block marker → exit 4, zero writes (host file bytes untouched)', async () => {
   const assetRoot = buildAssetRoot({ library: LIB, lint: { go: GO_LINT } });
   const repo = tmpDir('cg-malformed-');
   writeF(join(repo, 'go.mod'), 'module x\n');
-  writeF(join(repo, 'CLAUDE.md'), '<!-- code-guidelines:begin -->\norphaned begin with no end\n');
+  const claudeMdPath = join(repo, 'CLAUDE.md');
+  const originalClaudeMd = '<!-- code-guidelines:begin -->\norphaned begin with no end\n';
+  writeF(claudeMdPath, originalClaudeMd);
   const r = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
   assert.equal(r.exitCode, 4);
   assert.equal(existsSync(join(repo, '.code-guidelines')), false, 'zero writes on malformed marker');
+  assert.equal(
+    readFileSync(claudeMdPath, 'utf8'),
+    originalClaudeMd,
+    'CLAUDE.md own bytes are byte-for-byte unchanged, not just .code-guidelines absent',
+  );
 });
 
 test('sync: symlink at a write ancestor (.code-guidelines) → exit 4, zero writes', async () => {
@@ -493,6 +577,83 @@ test('sync: symlink at a write ancestor (.code-guidelines) → exit 4, zero writ
   // The symlink target must be empty — nothing written through the symlink.
   assert.deepEqual(readdirSync(outside), [], 'no files written through the symlink');
   assert.ok(lstatSync(join(repo, '.code-guidelines')).isSymbolicLink(), 'symlink not replaced');
+});
+
+test('sync: symlink at a write TARGET (leaf rule file, not just the .code-guidelines ancestor) → exit 4, zero disk change', async () => {
+  const assetRoot = buildAssetRoot({ library: LIB, lint: { go: GO_LINT } });
+  const repo = goRepo();
+  const outside = tmpDir('cg-outside-leaf-');
+  const outsideFile = join(outside, 'evil-target.md');
+  writeF(outsideFile, 'ORIGINAL OUTSIDE CONTENT\n');
+  // .code-guidelines itself is a REAL directory (not a symlink); only the leaf go.md is a symlink.
+  mkdirSync(join(repo, '.code-guidelines'), { recursive: true });
+  symlinkSync(outsideFile, join(repo, '.code-guidelines', 'go.md'));
+
+  const before = snapshotMtimes(repo);
+  const r = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
+  assert.equal(r.exitCode, 4);
+  assert.equal(
+    readFileSync(outsideFile, 'utf8'),
+    'ORIGINAL OUTSIDE CONTENT\n',
+    'outside target left untouched through the leaf symlink',
+  );
+  assert.ok(lstatSync(join(repo, '.code-guidelines', 'go.md')).isSymbolicLink(), 'leaf symlink not replaced');
+  assert.equal(existsSync(targetManifestPath(repo)), false, 'manifest never written (zero disk change)');
+  const after = snapshotMtimes(repo);
+  assert.deepEqual([...after.keys()].sort(), [...before.keys()].sort(), 'no other files added/removed');
+});
+
+// ---------------------------------------------------------------------------------------------
+// SPEC-SYNC-001 — commit-phase ordering + error handling (Task-10 Fix Wave 1, review §1): the
+// manifest must be written LAST, only after all writes/removals succeed, so a mid-commit removal
+// failure never orphans a file that the manifest has already stopped tracking.
+// ---------------------------------------------------------------------------------------------
+
+test('sync: removal failure mid-commit → defined exit code, manifest NOT rewritten to drop a file still on disk (no orphan)', async () => {
+  const assetRoot = buildAssetRoot({ library: LIB, lint: { go: GO_LINT } });
+  const repo = goRepo();
+
+  // First run: installs go.md, tracked in the manifest.
+  const r1 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
+  assert.equal(r1.exitCode, 0);
+  assert.ok(existsSync(join(repo, '.code-guidelines', 'go.md')));
+
+  // Remove go.mod so `go` is no longer detected → go.md becomes a pending removal.
+  rmSync(join(repo, 'go.mod'), { force: true });
+
+  // Deny write permission on the containing directory so unlink(go.md) fails with EACCES, while
+  // the directory itself stays lstat-able (search bit kept) so the fs-safety pre-check still passes
+  // and only the actual removal fails.
+  const targetDir = join(repo, '.code-guidelines');
+  chmodSync(targetDir, 0o555);
+  let r2;
+  try {
+    r2 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T1' });
+  } finally {
+    chmodSync(targetDir, 0o755); // restore so assertions/cleanup below can read/write again
+  }
+
+  assert.equal(r2.exitCode, 4, 'removal failure maps to a DEFINED exit code, not an uncaught throw');
+  assert.ok(
+    existsSync(join(repo, '.code-guidelines', 'go.md')),
+    'go.md is still physically present (the removal failed)',
+  );
+  const manifestAfterFailure = readManifest(repo);
+  assert.ok(
+    manifestAfterFailure.rules.some((r) => r.file === 'go.md'),
+    'manifest was NOT rewritten to drop go.md while it still exists on disk (no orphan)',
+  );
+
+  // A subsequent clean run (obstruction cleared) must still see go.md as pending removal — never
+  // falsely report up-to-date while an untracked, un-cleaned-up file lingers.
+  const r3 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T2' });
+  assert.equal(r3.exitCode, 0);
+  assert.equal(r3.status.upToDate, false, 'pending go.md removal must not be reported as up-to-date');
+  assert.equal(
+    existsSync(join(repo, '.code-guidelines', 'go.md')),
+    false,
+    'go.md is finally removed once the obstruction is gone',
+  );
 });
 
 test('sync: unknown platform → exit 2 usage', async () => {

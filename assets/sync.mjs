@@ -10,8 +10,8 @@
 // inlined here — deliberately duplicating src/install/fsutil.mjs rather than importing it.
 //
 // Exit codes (shared with the CLI, SPEC-CLI-001): 0 ok / 2 usage / 3 precheck-abort (current
-// platform entry file missing) / 4 conflict-or-safety (fs-safety/symlink reject, or
-// malformed/duplicate/orphan host-block marker).
+// platform entry file missing) / 4 conflict-or-safety (fs-safety/symlink reject,
+// malformed/duplicate/orphan host-block marker, or a mid-commit write/removal I/O failure).
 
 import { createHash, randomBytes } from 'node:crypto';
 import {
@@ -199,17 +199,21 @@ function loadTargetManifest(repoRoot) {
 // ---------------------------------------------------------------------------------------------
 // SPEC-DETECT-001: repo scan + four-predicate two-pass detection (PURE, deterministic).
 //
-// AND/OR SEMANTICS (pinned here, documented per Task-9 DEFER):
+// AND/OR SEMANTICS (pinned here, documented per Task-9 DEFER; requiresTags flipped to OR per
+// Task-10 Fix Wave 1 — see execution/task-10-review.md §3):
 //   * within a `files` list      -> OR (any listed path exists; a DIRECTORY counts as existing)
 //   * within a `packageDeps` list -> OR (any listed dep present in any package.json)
 //   * within an `extensions` list -> OR (any {ext,minCount} threshold met across the repo)
 //   * ACROSS the three populated non-requiresTags predicate types -> OR (any type matching = base hit)
-//   * `requiresTags` -> AND gate: EVERY required tag must have been emitted by a pass-1 hit
-//   A stack matches iff (baseMatch) AND (all requiresTags satisfied). A stack whose only
-//   populated predicate is requiresTags has baseMatch == true (gated solely by requiresTags).
-//   Two passes: pass 1 evaluates non-requiresTags stacks and collects their emitted `tags`;
-//   pass 2 evaluates requiresTags-bearing stacks against those tags (e.g. a11y<-frontend,
-//   python-ml<-python). guardrails-core (detect==null) always matches.
+//   * `requiresTags` -> OR gate: AT LEAST ONE required tag must have been emitted by a pass-1 hit
+//     (e.g. security:["backend","frontend"] applies to a backend-only OR a frontend-only repo, not
+//     only a full-stack one; a11y:["frontend"] and python-ml:["python"] are unaffected since AND
+//     and OR coincide on a single-tag list).
+//   A stack matches iff (baseMatch) AND (requiresTags is empty OR at least one tag satisfied). A
+//   stack whose only populated predicate is requiresTags has baseMatch == true (gated solely by
+//   requiresTags). Two passes: pass 1 evaluates non-requiresTags stacks and collects their emitted
+//   `tags`; pass 2 evaluates requiresTags-bearing stacks against those tags (e.g. a11y<-frontend,
+//   python-ml<-python, security<-backend|frontend). guardrails-core (detect==null) always matches.
 // ---------------------------------------------------------------------------------------------
 
 function scanRepo(repoRoot) {
@@ -339,7 +343,7 @@ export function detect(repoRoot, { assetRoot } = {}) {
   stacks.forEach((stackEntry, index) => {
     const det = stackEntry.detect;
     if (!hasRequires(det)) return;
-    const reqOk = det.requiresTags.every((t) => emittedTags.has(t));
+    const reqOk = det.requiresTags.some((t) => emittedTags.has(t));
     if (reqOk && baseMatch(det)) {
       detected.set(stackEntry.id, { ...stackEntry, index });
       if (Array.isArray(det.tags)) for (const t of det.tags) emittedTags.add(t);
@@ -635,14 +639,69 @@ export function armLint(detected, manifest, ctx = {}) {
 // SPEC-HOSTFMT-001 / SPEC-PRECHECK-001: maintain the managed block in existing entry docs.
 // ---------------------------------------------------------------------------------------------
 
-function buildPointers(selected, conventionsPresent) {
+// Minimal, hand-rolled `appliesTo` extractor from a rule file's YAML frontmatter (SPEC-RULEFMT-001).
+// NOT a general YAML parser: only understands the flat forms rule files actually use — a flow
+// array (`appliesTo: ["*.tsx", "*.jsx"]`), a block list (`appliesTo:\n  - "*.tsx"`), or a single
+// bare/quoted scalar (`appliesTo: "*.tsx"`). Returns null when absent or unparsable.
+function parseAppliesTo(content) {
+  if (typeof content !== 'string' || !content.startsWith('---')) return null;
+  const end = content.indexOf('\n---', 3);
+  if (end === -1) return null;
+  const lines = content.slice(3, end).split('\n');
+  for (let i = 0; i < lines.length; i += 1) {
+    const m = /^appliesTo:\s*(.*)$/.exec(lines[i]);
+    if (!m) continue;
+    const inline = m[1].trim();
+    if (inline.startsWith('[')) {
+      try {
+        const arr = JSON.parse(inline.replace(/'/g, '"'));
+        return Array.isArray(arr) && arr.length ? arr.map(String) : null;
+      } catch {
+        return null;
+      }
+    }
+    if (inline) return [inline.replace(/^['"]|['"]$/g, '')];
+    const globs = [];
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const bm = /^\s*-\s*(.+)$/.exec(lines[j]);
+      if (!bm) break;
+      globs.push(bm[1].trim().replace(/^['"]|['"]$/g, ''));
+    }
+    return globs.length ? globs : null;
+  }
+  return null;
+}
+
+// Reads each unique rule file's `appliesTo` globs directly from the library root, so the host
+// block can render SPEC-HOSTFMT-001's trigger-conditioned pointer form. file -> string[]|null.
+function loadRuleAppliesTo(libraryDir, files) {
+  const map = new Map();
+  for (const file of files) {
+    const content = readIfExists(join(libraryDir, file));
+    map.set(file, content ? parseAppliesTo(content) : null);
+  }
+  return map;
+}
+
+// ruleAppliesTo: Map<file, string[]|null> (SPEC-HOSTFMT-001). When a rule declares globs, render
+// "Before editing <glob>[, <glob>...], read .code-guidelines/<file>."; otherwise fall back to the
+// generic "Before related edits, ..." phrasing (e.g. guardrails-core, or a rule with no frontmatter
+// appliesTo, or an absent/not-yet-installed library file).
+function buildPointers(selected, conventionsPresent, ruleAppliesTo = new Map()) {
   const ptrs = [];
   if (conventionsPresent) {
     ptrs.push('- Before any edits, read `.code-guidelines/project-conventions.md` (project conventions).');
   }
   for (const s of selected) {
     for (const r of s.rules) {
-      ptrs.push(`- Before related edits, read \`.code-guidelines/${r}.md\`.`);
+      const file = `${r}.md`;
+      const globs = ruleAppliesTo.get(file);
+      if (globs && globs.length) {
+        const globList = globs.map((g) => `\`${g}\``).join(', ');
+        ptrs.push(`- Before editing ${globList}, read \`.code-guidelines/${file}\`.`);
+      } else {
+        ptrs.push(`- Before related edits, read \`.code-guidelines/${file}\`.`);
+      }
     }
   }
   return ptrs;
@@ -818,7 +877,8 @@ export async function sync(opts = {}) {
 
   // Step 7: host block. conventions pointer if project-conventions.md present on disk.
   const conventionsPresent = existsSync(join(repoRoot, '.code-guidelines', 'project-conventions.md'));
-  const pointers = buildPointers(selected, conventionsPresent);
+  const ruleAppliesTo = loadRuleAppliesTo(join(assetRoot, 'library'), ruleFilesOf(selected));
+  const pointers = buildPointers(selected, conventionsPresent, ruleAppliesTo);
   const existingEntryFiles = ENTRY_FILES.filter((f) => existsSync(join(repoRoot, f)));
   const hostPlan = maintainHostBlock(existingEntryFiles, { repoRoot, pointers });
   if (hostPlan.malformed) {
@@ -869,29 +929,47 @@ export async function sync(opts = {}) {
   // Commit phase. Safety-check EVERY target FIRST so a symlink at any target/ancestor aborts with
   // exit 4 BEFORE a single byte is written (SPEC-INSTALL-001 / DES-FSSAFE-001).
   const allowedRoots = [repoRoot];
-  const fileWrites = [
+  const contentWrites = [
     ...rulePlan.writes.map((w) => ({ absPath: w.absPath, content: w.content })),
     ...lintPlan.writes.map((w) => ({ absPath: w.absPath, content: w.content })),
     ...hostPlan.writes.map((w) => ({ absPath: w.absPath, content: w.content })),
   ];
-  if (manifestChanged) {
-    fileWrites.push({ absPath: join(repoRoot, '.code-guidelines', 'manifest.json'), content: nextManifestStr });
-  }
+  const manifestWrite = manifestChanged
+    ? { absPath: join(repoRoot, '.code-guidelines', 'manifest.json'), content: nextManifestStr }
+    : null;
   const removals = rulePlan.removals.map((r) => ({ absPath: r.absPath }));
 
   try {
-    for (const w of fileWrites) assertSafeTarget(w.absPath, allowedRoots);
+    for (const w of contentWrites) assertSafeTarget(w.absPath, allowedRoots);
     for (const r of removals) assertSafeTarget(r.absPath, allowedRoots);
+    if (manifestWrite) assertSafeTarget(manifestWrite.absPath, allowedRoots);
   } catch (err) {
     return finalize({ exitCode: 4, message: `fs-safety 拒绝:${err.message},已中止且零写入`, json });
   }
 
-  for (const w of fileWrites) {
-    mkdirSync(dirname(w.absPath), { recursive: true });
-    atomicWriteFile(w.absPath, w.content);
-  }
-  for (const r of removals) {
-    rmSync(r.absPath, { force: true });
+  // Execute in "new state fully in place, then cleanup, manifest last" order (Task-10 Fix Wave 1 —
+  // see execution/task-10-review.md §1): the manifest must never describe a state that isn't fully
+  // on disk yet. Any failure here — including a mid-commit removal error — is caught and mapped to
+  // a defined exit code instead of throwing uncaught; the manifest write is skipped entirely so a
+  // failed removal never gets silently dropped from tracking (no permanent orphan).
+  try {
+    for (const w of contentWrites) {
+      mkdirSync(dirname(w.absPath), { recursive: true });
+      atomicWriteFile(w.absPath, w.content);
+    }
+    for (const r of removals) {
+      rmSync(r.absPath, { force: true });
+    }
+    if (manifestWrite) {
+      mkdirSync(dirname(manifestWrite.absPath), { recursive: true });
+      atomicWriteFile(manifestWrite.absPath, manifestWrite.content);
+    }
+  } catch (err) {
+    return finalize({
+      exitCode: 4,
+      message: `sync 提交阶段写入/删除失败:${err.message},已中止;manifest 未回写,避免描述与磁盘不符的状态`,
+      json,
+    });
   }
 
   return finalize({ exitCode: 0, status, json });
