@@ -183,6 +183,34 @@ test('detect: real tsx source file still detects TypeScript', () => {
   assert.ok(ids.includes('typescript'), 'tsx source files trigger the TypeScript stack');
 });
 
+test('detect: PHP lint scaffolds alone do NOT detect the PHP stack', () => {
+  const repo = tmpDir('cg-php-scaffold-only-');
+  writeF(join(repo, '.php-cs-fixer.dist.php'), "<?php\nreturn (new PhpCsFixer\\Config());\n");
+  writeF(join(repo, 'phpstan.neon'), 'parameters:\n  level: 10\n');
+
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(!ids.includes('php'), 'generated PHP lint scaffolds are not PHP source evidence');
+});
+
+test('detect: real PHP source file still detects the PHP stack without composer.json', () => {
+  const repo = tmpDir('cg-php-src-');
+  writeF(join(repo, 'src', 'index.php'), "<?php\necho 'ok';\n");
+
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('php'), 'real .php source files trigger the PHP stack');
+});
+
+for (const ext of ['cc', 'hpp', 'h']) {
+  test(`detect: C++ stack recognizes .${ext} files`, () => {
+    const repo = tmpDir(`cg-cpp-${ext}-`);
+    const content = ext === 'h' ? '#pragma once\n' : 'int main() { return 0; }\n';
+    writeF(join(repo, 'src', `sample.${ext}`), content);
+
+    const ids = detect(repo).map((h) => h.id);
+    assert.ok(ids.includes('cpp'), `.${ext} files trigger the C++ stack`);
+  });
+}
+
 // ---------------------------------------------------------------------------------------------
 // SPEC-DETECT-001 — requiresTags is OR (Task-10 Fix Wave 1): security:["backend","frontend"]
 // applies to EITHER a backend-only or a frontend-only repo, not only a full-stack one.

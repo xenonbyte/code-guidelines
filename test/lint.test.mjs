@@ -195,6 +195,76 @@ test('armLint: --relint <tool> clears the opt-out marker and re-arms with a fres
   assert.equal(row.gap, true, 're-armed scaffold reports an install-command gap again');
 });
 
+test('armLint: --relint <tool> does NOT overwrite a foreign existing config', () => {
+  const repo = tmpDir('cg-lint-relint-foreign-');
+  writeF(join(repo, 'eslint.config.mjs'), 'export default [{ rules: { semi: "error" } }];\n');
+  const before = readFileSync(join(repo, 'eslint.config.mjs'), 'utf8');
+
+  const plan = armLint(DETECTED_JS, { lint: [] }, {
+    repoRoot: repo,
+    lintDir: LINT_BASELINE_ROOT,
+    relint: 'js-ts',
+    now: 'T0',
+  });
+
+  assert.equal(plan.writes.length, 0, '--relint must not arm over an existing user config');
+  assert.equal(plan.nextLint.length, 0, 'foreign config is not adopted into the manifest');
+  const row = plan.status.find((r) => r.tool === 'js-ts');
+  assert.equal(row.armed, false);
+  assert.equal(row.reason, 'existing-config');
+  assert.equal(readFileSync(join(repo, 'eslint.config.mjs'), 'utf8'), before, 'foreign config unchanged');
+  assert.equal(existsSync(join(repo, 'eslint.config.js')), false, 'no baseline file is created');
+});
+
+test('armLint: --relint <tool> does NOT overwrite a user-modified managed scaffold', () => {
+  const { repo, manifest } = armFreshBlankRepo('T0');
+  writeFileSync(join(repo, 'eslint.config.js'), '// user edit\nexport default [];\n');
+
+  const plan = armLint(DETECTED_JS, manifest, {
+    repoRoot: repo,
+    lintDir: LINT_BASELINE_ROOT,
+    relint: 'js-ts',
+    now: 'T1',
+  });
+
+  assert.equal(plan.writes.length, 0, '--relint must not rewrite a user-edited scaffold');
+  assert.deepEqual(plan.nextLint, manifest.lint, 'manifest record is preserved');
+  const row = plan.status.find((r) => r.tool === 'js-ts');
+  assert.equal(row.armed, true);
+  assert.equal(row.reason, 'user-modified');
+  assert.equal(readFileSync(join(repo, 'eslint.config.js'), 'utf8'), '// user edit\nexport default [];\n');
+});
+
+test('armLint: --relint <tool> does NOT overwrite a partially deleted managed scaffold', () => {
+  const lintRoot = tmpDir('cg-lint-multi-baseline-');
+  writeF(join(lintRoot, 'js-ts', 'eslint.config.js'), BASELINE_TEXT);
+  writeF(join(lintRoot, 'js-ts', 'tsconfig.json'), '{"compilerOptions":{"strict":true}}\n');
+  const repo = tmpDir('cg-lint-relint-partial-');
+  writeF(join(repo, 'eslint.config.js'), BASELINE_TEXT);
+  const manifest = {
+    lint: [{
+      tool: 'js-ts',
+      armedAt: 'T0',
+      sha256: combinedLintHashFromDir(join(lintRoot, 'js-ts')),
+    }],
+  };
+
+  const plan = armLint(DETECTED_JS, manifest, {
+    repoRoot: repo,
+    lintDir: lintRoot,
+    relint: 'js-ts',
+    now: 'T1',
+  });
+
+  assert.equal(plan.writes.length, 0, '--relint must not rewrite a partial scaffold set');
+  assert.deepEqual(plan.nextLint, manifest.lint, 'manifest record is preserved');
+  const row = plan.status.find((r) => r.tool === 'js-ts');
+  assert.equal(row.armed, true);
+  assert.equal(row.reason, 'existing-config');
+  assert.equal(readFileSync(join(repo, 'eslint.config.js'), 'utf8'), BASELINE_TEXT);
+  assert.equal(existsSync(join(repo, 'tsconfig.json')), false, 'missing scaffold is not recreated');
+});
+
 // ---------------------------------------------------------------------------------------------
 // SPEC-LINT-001 / SPEC-BASELINE-001 — existing config (current AND historical filename) is left
 // byte-for-byte unchanged; only a read-only recommendation.

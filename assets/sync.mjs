@@ -259,7 +259,8 @@ function validateTargetManifest(o) {
 // Task-10 Fix Wave 1 — see execution/task-10-review.md §3):
 //   * within a `files` list      -> OR (any listed path exists; a DIRECTORY counts as existing)
 //   * within a `packageDeps` list -> OR (any listed dep present in any package.json)
-//   * within an `extensions` list -> OR (any {ext,minCount} threshold met across the repo)
+//   * within an `extensions` list -> OR (any {ext,minCount} threshold met across the repo,
+//     minus optional per-entry excludeFiles)
 //   * ACROSS the three populated non-requiresTags predicate types -> OR (any type matching = base hit)
 //   * `requiresTags` -> OR gate: AT LEAST ONE required tag must have been emitted by a pass-1 hit
 //     (e.g. security:["backend","frontend"] applies to a backend-only OR a frontend-only repo, not
@@ -347,9 +348,42 @@ function matchFiles(files, scan) {
   return false;
 }
 
+function relBasename(rel) {
+  const slash = rel.lastIndexOf('/');
+  return slash === -1 ? rel : rel.slice(slash + 1);
+}
+
+function relExtension(rel) {
+  const name = relBasename(rel);
+  const dot = name.lastIndexOf('.');
+  return dot > 0 ? name.slice(dot + 1) : null;
+}
+
+function extensionFileExcluded(rel, excludeFiles) {
+  for (const entry of excludeFiles) {
+    if (entry.includes('/')) {
+      if (rel === entry) return true;
+    } else if (relBasename(rel) === entry) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function matchExtensions(exts, scan) {
-  for (const { ext, minCount } of exts) {
-    if ((scan.extCounts.get(ext) || 0) >= minCount) return true;
+  for (const { ext, minCount, excludeFiles } of exts) {
+    const excludes = Array.isArray(excludeFiles) ? excludeFiles : [];
+    if (excludes.length === 0) {
+      if ((scan.extCounts.get(ext) || 0) >= minCount) return true;
+      continue;
+    }
+    let count = 0;
+    for (const rel of scan.fileRelPaths) {
+      if (relExtension(rel) !== ext) continue;
+      if (extensionFileExcluded(rel, excludes)) continue;
+      count += 1;
+      if (count >= minCount) return true;
+    }
   }
   return false;
 }
@@ -622,6 +656,12 @@ export function armLint(detected, manifest, ctx = {}) {
     }
     return combinedHash(present) === recordedHash ? 'unmodified' : 'modified';
   }
+  function anyBaselineTargetExists(files) {
+    for (const f of files) {
+      if (existsSync(join(repoRoot, f.name))) return true;
+    }
+    return false;
+  }
   function hasExistingConfig(tool) {
     for (const f of LINT_PROBE_FILES[tool] || []) {
       if (existsSync(join(repoRoot, f))) return true;
@@ -673,6 +713,14 @@ export function armLint(detected, manifest, ctx = {}) {
       conflictWith: conflict.conflictingTool,
     };
   }
+  function existingConfigStatus(tool, rec = null) {
+    return {
+      tool,
+      armed: Boolean(rec && !rec.optedOut),
+      gap: false,
+      reason: 'existing-config',
+    };
+  }
 
   for (const tool of tools) {
     const baseline = baselineFiles(tool);
@@ -681,8 +729,32 @@ export function armLint(detected, manifest, ctx = {}) {
     const rec = lintByTool.get(tool);
     const installCmd = LINT_INSTALL_CMD[tool];
 
-    if (relint === tool) {
-      // Explicit re-arm branch: clear any marker, write fresh scaffold (SPEC-LINT-001).
+    if (relint === tool && !rec && hasExistingConfig(tool)) {
+      statusByTool.set(tool, existingConfigStatus(tool));
+      continue;
+    }
+
+    if (relint === tool && rec) {
+      // Explicit re-arm branch: only managed, unmodified, or fully deleted scaffolds may be
+      // refreshed. Foreign configs and user-modified managed scaffolds remain user property.
+      const state = rec.optedOut
+        ? (anyBaselineTargetExists(baseline) ? 'modified' : 'deleted')
+        : diskScaffoldState(baseline, rec.sha256);
+      if (state === 'modified') {
+        nextLint.push(rec);
+        statusByTool.set(tool, {
+          tool,
+          armed: Boolean(!rec.optedOut),
+          gap: false,
+          reason: 'user-modified',
+        });
+        continue;
+      }
+      if (state === 'deleted' && (anyBaselineTargetExists(baseline) || hasExistingConfig(tool))) {
+        nextLint.push(rec);
+        statusByTool.set(tool, existingConfigStatus(tool, rec));
+        continue;
+      }
       const conflict = scheduleWrite(tool, baseline);
       if (conflict) {
         if (rec) nextLint.push(rec);

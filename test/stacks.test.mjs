@@ -147,6 +147,20 @@ test('every non-core stack has a well-formed four-predicate detect shape', () =>
           Number.isInteger(entry.minCount) && entry.minCount > 0,
           `${stack.id}: extensions[].minCount must be a positive integer`,
         );
+        if ('excludeFiles' in entry) {
+          assert.ok(
+            Array.isArray(entry.excludeFiles),
+            `${stack.id}: extensions[].excludeFiles must be an array`,
+          );
+          for (const f of entry.excludeFiles) {
+            assert.equal(
+              typeof f,
+              'string',
+              `${stack.id}: extensions[].excludeFiles entries must be strings`,
+            );
+            assert.ok(f.length > 0);
+          }
+        }
       }
       if (detect.extensions.length > 0) hasActionablePredicate = true;
     }
