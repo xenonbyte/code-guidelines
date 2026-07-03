@@ -1,0 +1,7 @@
+# Clippy configuration (tunable thresholds/behavior only; this file cannot
+# set lint LEVELS — those are configured in the target project's own
+# Cargo.toml under [lints], see meta.json note).
+cognitive-complexity-threshold = 30
+too-many-arguments-threshold = 8
+type-complexity-threshold = 250
+avoid-breaking-exported-api = true

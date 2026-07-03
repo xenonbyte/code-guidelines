@@ -1,0 +1,11 @@
+{
+  "lang": "rust",
+  "tools": ["rustfmt", "clippy"],
+  "files": ["rustfmt.toml", "clippy.toml"],
+  "enforced": [
+    "rustfmt.toml controls formatting only (max_width, imports_granularity, group_imports)",
+    "clippy.toml controls lint tuning thresholds only (cognitive-complexity-threshold, too-many-arguments-threshold, type-complexity-threshold) — it cannot set lint levels",
+    "Lint LEVELS (e.g. clippy::all = \"deny\", clippy::pedantic = \"warn\") belong in the target project's own Cargo.toml under [lints.clippy] / [lints.rust] (stable since Rust 1.74); this baseline documents that requirement but does not create a Cargo.toml"
+  ],
+  "note": "This baseline intentionally ships no Cargo.toml. The target project's existing Cargo.toml must add a [lints] table to actually turn lints on; see 'enforced' above."
+}

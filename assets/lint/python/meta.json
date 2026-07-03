@@ -1,0 +1,11 @@
+{
+  "lang": "python",
+  "tools": ["ruff", "mypy"],
+  "files": ["ruff.toml", "mypy.ini"],
+  "enforced": [
+    "Lint rule selection under ruff.toml [lint] sub-table (Ruff >=0.2.0 format; top-level rule keys are deprecated)",
+    "select = E,F,I,UP,B,SIM,C4 rule groups are machine-enforced, not prose style guidance",
+    "mypy strict = true enables the full strict-mode flag bundle (disallow-untyped-defs, no-implicit-optional, etc.)",
+    "warn_unused_ignores / warn_redundant_casts catch stale type-ignore comments"
+  ]
+}

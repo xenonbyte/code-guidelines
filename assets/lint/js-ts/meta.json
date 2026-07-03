@@ -1,0 +1,15 @@
+{
+  "lang": "js-ts",
+  "tools": ["eslint", "prettier", "typescript"],
+  "files": ["eslint.config.js", ".prettierrc", "tsconfig.json"],
+  "enforced": [
+    "ESLint flat config only (eslint.config.js); legacy .eslintrc* is not read by ESLint v10+",
+    "eqeqeq, no-var, no-unused-vars, no-implicit-coercion, prefer-const are machine-enforced errors",
+    "tsconfig strict: true (full strict-mode bundle)",
+    "tsconfig noUncheckedIndexedAccess: true — indexed array/object access is typed as possibly undefined",
+    "tsconfig noImplicitOverride: true — subclass overrides must use the override keyword",
+    "tsconfig exactOptionalPropertyTypes: true — optional properties cannot be assigned undefined explicitly unless declared",
+    "Prettier formatting (semi, singleQuote, trailingComma, printWidth) is machine-enforced, not prose style guidance"
+  ],
+  "note": "React/Vue/etc. framework lint plugins are appended by sync.mjs when the corresponding frontend stack is detected; this baseline is plain JS/TS."
+}

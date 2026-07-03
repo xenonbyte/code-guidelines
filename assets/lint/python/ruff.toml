@@ -1,0 +1,17 @@
+# Ruff configuration. Lint rule selection lives under the [lint] sub-table
+# (top-level rule keys were deprecated in Ruff 0.2.0+); top-level keys here
+# are limited to non-lint settings such as line-length and target-version.
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
+ignore = []
+
+[lint.isort]
+combine-as-imports = true
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

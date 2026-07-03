@@ -1,0 +1,10 @@
+{
+  "lang": "go",
+  "tools": ["golangci-lint"],
+  "files": [".golangci.yml"],
+  "enforced": [
+    "v2 schema required: top-level version: \"2\" (golangci-lint v2 rejects v1-schema files)",
+    "linters.default: standard plus explicit enable list (govet, staticcheck, errcheck, ineffassign, unused, gocritic, revive) are machine-enforced",
+    "formatters is a separate top-level section in v2 (gofmt, goimports) — formatting is no longer configured under linters"
+  ]
+}
