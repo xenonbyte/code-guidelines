@@ -117,3 +117,11 @@ No timestamps, `Math.random`, `Date.now`, or locale-dependent behavior anywhere 
 - Source comments cite spec IDs (`SPEC-*`, `DES-*`, `DECISION-*`, `RISK-*`, `PLAN-TASK-*`). These trace to the archived spec-driven-development run under `.req-to-plan/archive/`. Preserve the ID references when editing near them; they are how design intent is tracked.
 - Modules with disk knowledge (path layout) are kept separate from source-agnostic engines, and roots are injectable (`{ home, env, repoRoot, assetRoot }`) so tests never touch the real home dir. Follow that pattern for new I/O code.
 - `README.md` and `README.zh-CN.md` are kept section-by-section aligned; `test/readme.test.mjs` guards claims in them. Update both, and the test, when product behavior changes.
+
+## Dogfooding
+
+Do **not** run `/code-guidelines` against this repository. `test/fixtures/` holds sample files for
+many stacks (Go, PHP, React, …) that exist only to exercise the detector; a repo-root run aggregates
+them, falsely detects those stacks, and scaffolds irrelevant lint configs plus managed blocks into the
+working tree (root-level dogfood output is git-ignored, but it still clutters the tree). To dogfood
+the tool, run it in a throwaway scratch project instead.

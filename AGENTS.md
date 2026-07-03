@@ -70,3 +70,11 @@ Two independent version numbers, do not conflate: `package.json#version` (the in
 Pure Node.js, ESM (`"type": "module"`), Node ≥20, **zero third-party runtime dependencies** (only
 `node:*` builtins). No `npm install` is required to build or test. Rule-library upstream sources
 and licenses are documented in `THIRD-PARTY.md` and each rule's `source` frontmatter.
+
+## Dogfooding
+
+Do **not** run `/code-guidelines` against this repository. `test/fixtures/` holds sample files for
+many stacks (Go, PHP, React, …) that exist only to exercise the detector; a repo-root run aggregates
+them, falsely detects those stacks, and scaffolds irrelevant lint configs plus managed blocks into the
+working tree (root-level dogfood output is git-ignored, but it still clutters the tree). To dogfood
+the tool, run it in a throwaway scratch project instead.
