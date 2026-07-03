@@ -583,6 +583,7 @@ export function armLint(detected, manifest, ctx = {}) {
     }
     const files = [];
     for (const name of names) {
+      if (name === 'meta.json') continue; // asset metadata, not a target-repo scaffold file
       const p = join(dir, name);
       try {
         if (statSync(p).isFile()) files.push({ name, content: readFileSync(p) });

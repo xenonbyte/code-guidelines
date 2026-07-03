@@ -342,6 +342,36 @@ test('armLint: fresh detect → arms scaffold + reports gap with install command
   assert.ok(row.installCmd && row.installCmd.includes('golangci-lint'));
 });
 
+test('armLint: baseline meta.json is asset metadata, not a repo scaffold', () => {
+  const assetRoot = buildAssetRoot({
+    lint: {
+      go: {
+        ...GO_LINT,
+        'meta.json': '{"tools":["golangci-lint"],"files":[".golangci.yml"]}\n',
+      },
+    },
+  });
+  const repo = tmpDir('cg-lint-meta-');
+  const rootMeta = '{"project":"metadata that must stay untouched"}\n';
+  writeF(join(repo, 'meta.json'), rootMeta);
+
+  const plan = armLint([{ id: 'go', lint: 'go' }], { lint: [] }, { repoRoot: repo, assetRoot, now: 'T0' });
+
+  assert.deepEqual(
+    plan.writes.map((w) => w.absPath.slice(repo.length + 1)).sort(),
+    ['.golangci.yml'],
+    'only scaffold files are scheduled for target repo writes',
+  );
+  assert.equal(
+    plan.nextLint[0].sha256,
+    combinedLintHash(GO_LINT),
+    'lint manifest hash excludes asset-only meta.json',
+  );
+
+  for (const w of plan.writes) writeF(w.absPath, w.content);
+  assert.equal(readFileSync(join(repo, 'meta.json'), 'utf8'), rootMeta, 'root meta.json is not overwritten');
+});
+
 test('armLint: ruby install command includes RuboCop plugin gems required by the scaffold', () => {
   const assetRoot = buildAssetRoot({
     lint: { ruby: { '.rubocop.yml': 'plugins:\n  - rubocop-performance\n  - rubocop-rspec\n' } },
