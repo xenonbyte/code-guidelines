@@ -267,6 +267,18 @@ test('reconcile: fresh repo adds all expected rule files', () => {
   assert.equal(plan.removed.length, 0);
 });
 
+test('reconcile: untracked existing rule file is skipped, never overwritten', () => {
+  const assetRoot = buildAssetRoot({ library: LIB });
+  const repo = tmpDir('cg-recon-untracked-');
+  writeF(join(repo, '.code-guidelines', 'go.md'), '# go\nFOREIGN CONTENT\n');
+
+  const plan = reconcile([{ rules: ['go'] }], { rules: [], lint: [], conventions: null }, { repoRoot: repo, assetRoot });
+
+  assert.equal(plan.writes.length, 0, 'no write to an untracked existing rule file');
+  assert.deepEqual(plan.skipped, [{ file: 'go.md', reason: 'untracked-existing' }]);
+  assert.ok(!plan.nextRules.some((r) => r.file === 'go.md'), 'foreign content is not adopted into the manifest');
+});
+
 test('reconcile: user-override (disk hash ≠ manifest) is skipped, never overwritten', () => {
   const assetRoot = buildAssetRoot({ library: LIB });
   const repo = tmpDir('cg-recon-uo-');
@@ -428,6 +440,32 @@ test('armLint: --relint clears marker and re-arms', () => {
   assert.equal(plan.writes.length, 1, 'relint re-writes the scaffold');
 });
 
+test('armLint: duplicate scaffold target paths do not clobber or double-arm manifests', () => {
+  const assetRoot = buildAssetRoot({
+    lint: {
+      kotlin: { '.editorconfig': 'root = true\n[*.kt]\nktlint_standard = enabled\n', 'detekt.yml': 'config:\n' },
+      csharp: { '.editorconfig': 'root = true\n[*.cs]\ndotnet_style_qualification_for_field = false:error\n', 'Directory.Build.props': '<Project />\n' },
+    },
+  });
+  const repo = tmpDir('cg-lint-conflict-');
+  const detected = [
+    { id: 'kotlin', lint: 'kotlin' },
+    { id: 'csharp', lint: 'csharp' },
+  ];
+
+  const plan = armLint(detected, { lint: [] }, { repoRoot: repo, assetRoot, now: 'T0' });
+
+  assert.deepEqual(
+    plan.writes.map((w) => w.absPath.slice(repo.length + 1)).sort(),
+    ['.editorconfig', 'detekt.yml'],
+    'the first baseline owns the shared target path; the conflicting baseline is not written',
+  );
+  assert.deepEqual(plan.nextLint.map((l) => l.tool), ['kotlin'], 'only the actually written baseline is armed');
+  const csharpRow = plan.status.find((r) => r.tool === 'csharp');
+  assert.equal(csharpRow.armed, false);
+  assert.equal(csharpRow.reason, 'path-conflict');
+});
+
 // combined lint scaffold hash mirror (matches armLint's combinedHash algorithm)
 function combinedLintHash(files) {
   const h = createHash('sha256');
@@ -543,6 +581,60 @@ test('sync: first run installs; second run is a NO-OP with zero writes and uncha
   for (const [p, m] of before) {
     assert.equal(after.get(p), m, `mtime unchanged: ${p}`);
   }
+});
+
+test('sync: no-op run still reports a deleted lint scaffold opt-out in text mode', async () => {
+  const assetRoot = buildAssetRoot({ library: LIB, lint: { go: GO_LINT } });
+  const repo = goRepo();
+
+  const r1 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
+  assert.equal(r1.exitCode, 0);
+  rmSync(join(repo, '.golangci.yml'), { force: true });
+
+  const r2 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T1' });
+
+  assert.equal(r2.exitCode, 0);
+  assert.equal(r2.status.upToDate, true, 'manifest and managed files are unchanged');
+  assert.ok(r2.text.includes('已是最新,无变更'));
+  assert.ok(r2.text.includes('lint go: 已退出(用户删除脚手架)'));
+  assert.equal(existsSync(join(repo, '.golangci.yml')), false, 'deleted scaffold is not revived');
+});
+
+test('sync: no-op run still reports a user-modified managed rule in text mode', async () => {
+  const assetRoot = buildAssetRoot({ library: LIB });
+  const repo = goRepo();
+
+  const r1 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
+  assert.equal(r1.exitCode, 0);
+  writeF(join(repo, '.code-guidelines', 'go.md'), '# go\nUSER EDIT\n');
+
+  const r2 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T1' });
+
+  assert.equal(r2.exitCode, 0);
+  assert.equal(r2.status.upToDate, true, 'manifest and managed host block are unchanged');
+  assert.ok(r2.text.includes('已是最新,无变更'));
+  assert.ok(r2.text.includes('跳过: go.md(user-override)'));
+  assert.equal(readFileSync(join(repo, '.code-guidelines', 'go.md'), 'utf8'), '# go\nUSER EDIT\n');
+});
+
+test('sync: no-op run reports a user-modified lint scaffold in text and json modes', async () => {
+  const assetRoot = buildAssetRoot({ library: LIB, lint: { go: GO_LINT } });
+  const repo = goRepo();
+
+  const r1 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
+  assert.equal(r1.exitCode, 0);
+  writeF(join(repo, '.golangci.yml'), `${GO_LINT['.golangci.yml']}# user edit\n`);
+
+  const textResult = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T1' });
+  assert.equal(textResult.exitCode, 0);
+  assert.equal(textResult.status.upToDate, true, 'manifest and managed files are unchanged');
+  assert.ok(textResult.text.includes('已是最新,无变更'));
+  assert.ok(textResult.text.includes('lint go: 已布防,跳过(用户修改脚手架)'));
+  assert.equal(textResult.status.lint.find((row) => row.tool === 'go').reason, 'user-modified');
+
+  const jsonResult = await sync({ platform: 'claude', repoRoot: repo, assetRoot, json: true, now: 'T2' });
+  assert.equal(jsonResult.exitCode, 0);
+  assert.equal(jsonResult.json.lint.find((row) => row.tool === 'go').reason, 'user-modified');
 });
 
 test('sync: --dry-run computes a plan but writes NOTHING', async () => {

@@ -471,6 +471,7 @@ export function reconcile(selected, manifest, ctx = {}) {
   const kept = [];
   const writes = []; // {file, absPath, content}
   const removals = []; // {file, absPath}
+  const safetyChecks = []; // existing paths that must still satisfy fs-safety before reporting
   const nextRules = [];
 
   function libInfo(file) {
@@ -494,13 +495,23 @@ export function reconcile(selected, manifest, ctx = {}) {
       if (rec) nextRules.push(rec);
       continue;
     }
+    const disk = diskInfo(file);
     if (!rec) {
+      if (disk.present) {
+        safetyChecks.push({ file, absPath: join(targetDir, file) });
+        if (disk.hash === lib.hash) {
+          kept.push({ file });
+          nextRules.push({ file, sourceVersion: version, sha256: lib.hash });
+        } else {
+          skipped.push({ file, reason: 'untracked-existing' });
+        }
+        continue;
+      }
       added.push({ file });
       writes.push({ file, absPath: join(targetDir, file), content: lib.content });
       nextRules.push({ file, sourceVersion: version, sha256: lib.hash });
       continue;
     }
-    const disk = diskInfo(file);
     if (!disk.present) {
       // Expected + recorded but gone from disk -> restore (no user content to protect).
       added.push({ file });
@@ -540,7 +551,7 @@ export function reconcile(selected, manifest, ctx = {}) {
     }
   }
 
-  return { added, upgraded, removed, skipped, kept, writes, removals, nextRules, targetDir };
+  return { added, upgraded, removed, skipped, kept, writes, removals, safetyChecks, nextRules, targetDir };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -572,6 +583,7 @@ export function armLint(detected, manifest, ctx = {}) {
   const writes = []; // {absPath, content}
   const nextLint = [];
   const statusByTool = new Map(); // tool -> {tool, armed, gap, installCmd?, optedOut?, reason?}
+  const plannedWritesByPath = new Map(); // absPath -> tool
 
   function baselineFiles(tool) {
     const dir = join(lintDir, tool);
@@ -633,10 +645,33 @@ export function armLint(detected, manifest, ctx = {}) {
     }
     return false;
   }
-  function scheduleWrite(files) {
+  function plannedWriteConflict(tool, files) {
     for (const f of files) {
-      writes.push({ absPath: join(repoRoot, f.name), content: f.content });
+      const absPath = join(repoRoot, f.name);
+      const owner = plannedWritesByPath.get(absPath);
+      if (owner && owner !== tool) return { file: f.name, conflictingTool: owner };
     }
+    return null;
+  }
+  function scheduleWrite(tool, files) {
+    const conflict = plannedWriteConflict(tool, files);
+    if (conflict) return conflict;
+    for (const f of files) {
+      const absPath = join(repoRoot, f.name);
+      writes.push({ absPath, content: f.content });
+      plannedWritesByPath.set(absPath, tool);
+    }
+    return null;
+  }
+  function pathConflictStatus(tool, conflict, armed = false) {
+    return {
+      tool,
+      armed,
+      gap: false,
+      reason: 'path-conflict',
+      conflictFile: conflict.file,
+      conflictWith: conflict.conflictingTool,
+    };
   }
 
   for (const tool of tools) {
@@ -648,7 +683,12 @@ export function armLint(detected, manifest, ctx = {}) {
 
     if (relint === tool) {
       // Explicit re-arm branch: clear any marker, write fresh scaffold (SPEC-LINT-001).
-      scheduleWrite(baseline);
+      const conflict = scheduleWrite(tool, baseline);
+      if (conflict) {
+        if (rec) nextLint.push(rec);
+        statusByTool.set(tool, pathConflictStatus(tool, conflict, Boolean(rec && !rec.optedOut)));
+        continue;
+      }
       nextLint.push({ tool, armedAt: now, sha256: assetHash });
       statusByTool.set(tool, { tool, armed: true, gap: true, installCmd });
       continue;
@@ -675,7 +715,12 @@ export function armLint(detected, manifest, ctx = {}) {
       }
       // Unmodified scaffold.
       if (assetHash !== rec.sha256) {
-        scheduleWrite(baseline); // version upgrade
+        const conflict = scheduleWrite(tool, baseline); // version upgrade
+        if (conflict) {
+          nextLint.push(rec);
+          statusByTool.set(tool, pathConflictStatus(tool, conflict, true));
+          continue;
+        }
         nextLint.push({ tool, armedAt: rec.armedAt, sha256: assetHash });
         statusByTool.set(tool, { tool, armed: true, gap: false });
       } else {
@@ -692,7 +737,11 @@ export function armLint(detected, manifest, ctx = {}) {
       continue;
     }
     // Arm first time: three conditions satisfied.
-    scheduleWrite(baseline);
+    const conflict = scheduleWrite(tool, baseline);
+    if (conflict) {
+      statusByTool.set(tool, pathConflictStatus(tool, conflict));
+      continue;
+    }
     nextLint.push({ tool, armedAt: now, sha256: assetHash });
     statusByTool.set(tool, { tool, armed: true, gap: true, installCmd });
   }
@@ -1036,6 +1085,7 @@ export async function sync(opts = {}) {
   try {
     for (const w of contentWrites) assertSafeTarget(w.absPath, allowedRoots);
     for (const r of removals) assertSafeTarget(r.absPath, allowedRoots);
+    for (const c of rulePlan.safetyChecks) assertSafeTarget(c.absPath, allowedRoots);
     if (manifestWrite) assertSafeTarget(manifestWrite.absPath, allowedRoots);
   } catch (err) {
     return finalize({ exitCode: 4, message: `fs-safety 拒绝:${err.message},已中止且零写入`, json });
@@ -1081,6 +1131,7 @@ function buildStatus({ upToDate, rulePlan, lintPlan, truncated, conventionsPrese
       const out = { tool: row.tool, armed: Boolean(row.armed), gap: Boolean(row.gap) };
       if (row.installCmd) out.installCmd = row.installCmd;
       if (row.optedOut) out.optedOut = true;
+      if (row.reason) out.reason = row.reason;
       return out;
     }),
     conventions: {
@@ -1103,8 +1154,11 @@ function finalize({ exitCode, status, message, json, upToDate, dryRun }) {
 
 function renderTextReport(status, { upToDate, dryRun } = {}) {
   if (!status) return '';
-  if (upToDate) return '已是最新,无变更';
+  const hasLintNotice = status.lint.some((row) => row.optedOut || row.reason);
+  const hasRuleNotice = status.skipped.length > 0;
+  if (upToDate && !hasLintNotice && !hasRuleNotice) return '已是最新,无变更';
   const lines = [];
+  if (upToDate) lines.push('已是最新,无变更');
   if (dryRun) lines.push('[dry-run] 以下为拟改动,未写盘:');
   lines.push(`新增: ${status.added.length ? status.added.join(', ') : '(无)'}`);
   lines.push(`升级: ${status.upgraded.length ? status.upgraded.join(', ') : '(无)'}`);
@@ -1116,6 +1170,9 @@ function renderTextReport(status, { upToDate, dryRun } = {}) {
   for (const row of status.lint) {
     if (row.armed && row.gap) lines.push(`lint ${row.tool}: 已布防,依赖缺口 -> ${row.installCmd}`);
     else if (row.optedOut) lines.push(`lint ${row.tool}: 已退出(用户删除脚手架)`);
+    else if (row.reason === 'user-modified') lines.push(`lint ${row.tool}: 已布防,跳过(用户修改脚手架)`);
+    else if (row.reason === 'path-conflict') lines.push(`lint ${row.tool}: 跳过(脚手架路径冲突)`);
+    else if (row.reason) lines.push(`lint ${row.tool}: 跳过(${row.reason})`);
     else if (row.armed) lines.push(`lint ${row.tool}: 已布防`);
     else lines.push(`lint ${row.tool}: 已有配置,只读推荐`);
   }
