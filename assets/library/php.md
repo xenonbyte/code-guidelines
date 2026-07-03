@@ -15,6 +15,9 @@ source: original
 - MUST NOT rely on loose comparison (`==`) for type-sensitive checks such as hash or token comparison; use strict comparison (`===`) or a timing-safe helper for secrets.
 - MUST NOT catch `\Throwable`/`\Exception` broadly and discard it without logging or rethrowing.
 - MUST NOT use global mutable state (`global` keyword, static class state) to pass request-scoped data between unrelated components.
+- MUST NOT call `unserialize()` on untrusted input (PHP object injection via magic methods); use JSON, or pass `['allowed_classes' => false]` if unavoidable.
+- MUST NOT pass user-controlled values into `include`/`require`(`_once`) without a strict allow-list; this enables local/remote file inclusion.
+- MUST NOT call `extract()` on request data (`$_GET`/`$_POST`/`$_REQUEST`); it lets an attacker overwrite arbitrary local variables.
 
 ## Ecosystem Idioms & Conventions
 

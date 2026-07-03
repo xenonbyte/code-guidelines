@@ -15,6 +15,9 @@ source: original
 - MUST NOT call a platform-specific API without a `Platform.OS`/`Platform.select` branch or a platform-specific file, causing a runtime crash on the other platform.
 - MUST NOT store sensitive tokens or credentials in `AsyncStorage` in plaintext — use secure, Keychain/Keystore-backed storage instead.
 - MUST NOT manipulate the navigation stack outside the navigation library's own API.
+- MUST NOT pass freshly-created inline functions/objects/arrays as props to memoized or list components (e.g. `FlatList` `renderItem`) — the new identity defeats memoization and forces re-renders; hoist or wrap them in `useCallback`/`useMemo`.
+- MUST NOT act on a deep-link/`Linking` URL or its params (navigate, parse, fetch) without validating them first — they are untrusted external input.
+- MUST NOT use an index-derived or unstable `keyExtractor`/list key over reorderable data — keys must be stable and unique for correct list reconciliation.
 
 ## Ecosystem Idioms & Conventions
 

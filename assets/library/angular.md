@@ -15,6 +15,9 @@ source: original
 - MUST NOT put non-trivial business logic in a template expression — move it into the component class or a service.
 - MUST NOT instantiate a service with `new` instead of Angular's dependency injection — bypasses singleton scoping and testability.
 - MUST NOT call HTTP APIs directly from a component — route them through an injectable service.
+- MUST NOT call `bypassSecurityTrust*` (Html/Style/Script/Url/ResourceUrl) on untrusted values — it disables Angular's built-in XSS sanitization.
+- MUST NOT bind untrusted content with `[innerHTML]` or via direct DOM manipulation (`ElementRef`/`Renderer2`) without an explicit `DomSanitizer.sanitize` — these bypass contextual escaping.
+- MUST NOT build Angular templates from user- or server-controlled strings — template injection hands an attacker full execution control.
 
 ## Ecosystem Idioms & Conventions
 
