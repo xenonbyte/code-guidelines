@@ -7,7 +7,7 @@ not applied to this codebase.
 
 ## Commands
 
-- Tests: `npm test` (i.e. `node --test`, auto-discovers `test/*.test.mjs`). 230 tests, all must pass.
+- Tests: `npm test` (i.e. `node --test`, auto-discovers `test/*.test.mjs`). 267 tests, all must pass.
   - Single file: `node --test test/library.test.mjs`
   - By name: `node --test --test-name-pattern="48"`
 - Build (regenerate checked-in output): `npm run build` (`node src/build/build.mjs`)
@@ -21,9 +21,9 @@ not applied to this codebase.
 `generated/<platform>/*` is **committed output**, never hand-edited. It is composed from:
 
 ```
-fragments/skill/{purpose,triggers,behavior,output}..md + fragments/shared/body.md
+fragments/{core,lint,distill}/{purpose,triggers,behavior,output}.md + fragments/shared/body.md
 fragments/templates/*.tmpl        (per-platform render templates)
-src/build/registry.mjs            (explicit ordered skill list + per-platform facts)
+src/build/registry.mjs            (three ordered skill entries + per-platform facts)
 src/build/platforms.mjs           (emitters)
   --> src/build/build.mjs --> generated/{claude,codex,gemini,opencode}/
 ```

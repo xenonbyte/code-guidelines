@@ -27,6 +27,7 @@ import {
   maintainHostBlock,
   distillRecord,
   sync,
+  syncLint,
 } from '../assets/sync.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -594,15 +595,16 @@ test('sync: first run installs; second run is a NO-OP with zero writes and uncha
   assert.equal(r1.status.upToDate, false);
   assert.ok(existsSync(join(repo, '.code-guidelines', 'go.md')));
   assert.ok(existsSync(join(repo, '.code-guidelines', 'guardrails-core.md')));
-  assert.ok(existsSync(join(repo, '.golangci.yml')), 'lint scaffold armed');
   assert.ok(existsSync(targetManifestPath(repo)));
   assert.ok(readFileSync(join(repo, 'CLAUDE.md'), 'utf8').includes('code-guidelines:begin'));
+  // Core sync no longer arms lint — that is the separate `/code-guidelines-lint` command.
+  assert.equal(existsSync(join(repo, '.golangci.yml')), false, 'core sync does not arm lint');
 
   const before = snapshotMtimes(repo);
   const r2 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T9' });
   assert.equal(r2.exitCode, 0);
   assert.equal(r2.status.upToDate, true, 'second run reports up-to-date');
-  assert.equal(r2.text, '已是最新,无变更');
+  assert.ok(r2.text.startsWith('已是最新,无变更'), 'no-op core report leads with the up-to-date line');
 
   const after = snapshotMtimes(repo);
   assert.deepEqual([...after.keys()].sort(), [...before.keys()].sort(), 'no files added/removed');
@@ -611,18 +613,18 @@ test('sync: first run installs; second run is a NO-OP with zero writes and uncha
   }
 });
 
-test('sync: no-op run still reports a deleted lint scaffold opt-out in text mode', async () => {
+test('lint: no-op run still reports a deleted lint scaffold opt-out in text mode', async () => {
   const assetRoot = buildAssetRoot({ library: LIB, lint: { go: GO_LINT } });
   const repo = goRepo();
 
-  const r1 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
+  const r1 = await syncLint({ repoRoot: repo, assetRoot, now: 'T0' });
   assert.equal(r1.exitCode, 0);
   rmSync(join(repo, '.golangci.yml'), { force: true });
 
-  const r2 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T1' });
+  const r2 = await syncLint({ repoRoot: repo, assetRoot, now: 'T1' });
 
   assert.equal(r2.exitCode, 0);
-  assert.equal(r2.status.upToDate, true, 'manifest and managed files are unchanged');
+  assert.equal(r2.status.upToDate, true, 'manifest is unchanged (opt-out already recorded state)');
   assert.ok(r2.text.includes('已是最新,无变更'));
   assert.ok(r2.text.includes('lint go: 已退出(用户删除脚手架)'));
   assert.equal(existsSync(join(repo, '.golangci.yml')), false, 'deleted scaffold is not revived');
@@ -645,22 +647,21 @@ test('sync: no-op run still reports a user-modified managed rule in text mode', 
   assert.equal(readFileSync(join(repo, '.code-guidelines', 'go.md'), 'utf8'), '# go\nUSER EDIT\n');
 });
 
-test('sync: no-op run reports a user-modified lint scaffold in text and json modes', async () => {
+test('lint: no-op run reports a user-modified lint scaffold in text and json modes', async () => {
   const assetRoot = buildAssetRoot({ library: LIB, lint: { go: GO_LINT } });
   const repo = goRepo();
 
-  const r1 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
+  const r1 = await syncLint({ repoRoot: repo, assetRoot, now: 'T0' });
   assert.equal(r1.exitCode, 0);
   writeF(join(repo, '.golangci.yml'), `${GO_LINT['.golangci.yml']}# user edit\n`);
 
-  const textResult = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T1' });
+  const textResult = await syncLint({ repoRoot: repo, assetRoot, now: 'T1' });
   assert.equal(textResult.exitCode, 0);
-  assert.equal(textResult.status.upToDate, true, 'manifest and managed files are unchanged');
-  assert.ok(textResult.text.includes('已是最新,无变更'));
+  assert.equal(textResult.status.upToDate, true, 'manifest and scaffold records are unchanged');
   assert.ok(textResult.text.includes('lint go: 已布防,跳过(用户修改脚手架)'));
   assert.equal(textResult.status.lint.find((row) => row.tool === 'go').reason, 'user-modified');
 
-  const jsonResult = await sync({ platform: 'claude', repoRoot: repo, assetRoot, json: true, now: 'T2' });
+  const jsonResult = await syncLint({ repoRoot: repo, assetRoot, json: true, now: 'T2' });
   assert.equal(jsonResult.exitCode, 0);
   assert.equal(jsonResult.json.lint.find((row) => row.tool === 'go').reason, 'user-modified');
 });
@@ -680,11 +681,13 @@ test('sync: --json emits the SPEC-STATUS-001 structured shape', async () => {
   const repo = goRepo();
   const r = await sync({ platform: 'claude', repoRoot: repo, assetRoot, json: true, now: 'T0' });
   const o = r.json;
-  for (const k of ['upToDate', 'added', 'removed', 'upgraded', 'skipped', 'lint', 'conventions', 'exitCode']) {
+  // Core sync's JSON no longer carries `lint` — that moved to the `/code-guidelines-lint` command.
+  for (const k of ['upToDate', 'added', 'removed', 'upgraded', 'skipped', 'conventions', 'exitCode']) {
     assert.ok(k in o, `json has key ${k}`);
   }
+  assert.ok(!('lint' in o), 'core sync json must not carry a lint field');
   assert.equal(typeof o.upToDate, 'boolean');
-  assert.ok(Array.isArray(o.added) && Array.isArray(o.lint));
+  assert.ok(Array.isArray(o.added));
   assert.equal(typeof o.conventions.present, 'boolean');
   assert.equal(o.exitCode, 0);
 });

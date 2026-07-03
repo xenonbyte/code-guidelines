@@ -88,9 +88,9 @@ async function readFragmentDir(dir) {
  * Gather the fragment set a skill's platform emitters need: its own per-section fragments
  * (fragments/<fragmentsDir>/*) plus the shared cross-skill fragments (fragments/shared/*), both
  * sorted by file name for deterministic composition. `fragmentsDir` is the skill's own directory
- * name under fragments/ (registry.mjs's `fragmentsDir` field — PLAN-TASK-007 landed its fragments
- * at fragments/skill/*, not fragments/<id>/*, so this is driven by that explicit field rather
- * than assumed to equal the skill id).
+ * name under fragments/ (registry.mjs's `fragmentsDir` field — each command has its own directory,
+ * e.g. core/lint/distill, which need not equal the skill id, so this is driven by that explicit
+ * field rather than assumed to equal the skill id).
  */
 async function readFragments(fragmentsDir) {
   const [own, shared] = await Promise.all([

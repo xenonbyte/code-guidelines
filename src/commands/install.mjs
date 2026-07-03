@@ -39,13 +39,14 @@ export const PLATFORM_PRODUCT_FILE = Object.freeze(
 
 /**
  * Resolve every install path from an injectable home + env (SPEC-PLATFORM-001).
- * - claude:   <home>/.claude/skills/code-guidelines/
- * - codex:    <home>/.codex/prompts/
- * - opencode: <XDG_CONFIG_HOME | <home>/.config>/opencode/commands/
- * - gemini:   <home>/.gemini/commands/
+ * - claude:   <home>/.claude/skills/          (one <skill-id>/SKILL.md directory per command)
+ * - codex:    <home>/.codex/prompts/          (one <skill-id>.md per command)
+ * - opencode: <XDG_CONFIG_HOME | <home>/.config>/opencode/commands/  (one <skill-id>.md per command)
+ * - gemini:   <home>/.gemini/commands/        (one <skill-id>.toml per command)
  * - shared:   <home>/.code-guidelines/  (full asset set + install-manifest.json; SCOPE-IN-005)
  * `allowedRoots` always spans the shared root plus ALL four platform roots so a partial-platform
- * reinstall can still safely remove no-longer-installed platforms' files.
+ * reinstall can still safely remove no-longer-installed platforms' files. The claude root is the
+ * `skills/` parent (not a single skill dir) so all three command skill directories land under it.
  */
 export function resolveConfig({ home = homedir(), env = process.env } = {}) {
   const sharedRoot = join(home, '.code-guidelines');
@@ -54,7 +55,7 @@ export function resolveConfig({ home = homedir(), env = process.env } = {}) {
       ? env.XDG_CONFIG_HOME
       : join(home, '.config');
   const platformRoots = {
-    claude: join(home, '.claude', 'skills', 'code-guidelines'),
+    claude: join(home, '.claude', 'skills'),
     codex: join(home, '.codex', 'prompts'),
     opencode: join(xdg, 'opencode', 'commands'),
     gemini: join(home, '.gemini', 'commands'),
@@ -116,13 +117,18 @@ export async function gatherDefaultSources(platforms, cfg) {
     desired.push({ targetPath: join(cfg.sharedRoot, rel), content });
   }
 
-  // Per-platform built products → <platformRoot>/<rel>
+  // Per-platform built products → <platformRoot>/<rel>. Each product file is tagged with the
+  // registry skill id that owns it (derived from that skill's `generatedFile` for the platform),
+  // so the install manifest records true per-command ownership across all three commands.
   for (const platform of platforms) {
     const genDir = join(REPO_ROOT, 'generated', platform);
     const root = cfg.platformRoots[platform];
+    const skillByRel = new Map(
+      REGISTRY.filter((s) => s.platforms[platform]).map((s) => [s.platforms[platform].generatedFile, s.id])
+    );
     for (const rel of await listFilesRelative(genDir)) {
       const content = await readFile(join(genDir, rel));
-      desired.push({ targetPath: join(root, rel), content, skill: SKILL_NAME, platform });
+      desired.push({ targetPath: join(root, rel), content, skill: skillByRel.get(rel) ?? SKILL_NAME, platform });
     }
   }
 
@@ -172,7 +178,7 @@ export async function install(platforms, options = {}) {
 
   const manifestMeta = {
     version: readInstallerVersion(),
-    skills: [SKILL_NAME],
+    skills: REGISTRY.map((s) => s.id),
     platforms: platforms.filter((p) => INSTALL_PLATFORMS.includes(p)),
   };
 

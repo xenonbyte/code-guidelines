@@ -4,10 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this project is
 
-A **zero-third-party-dependency** Node.js tool that installs ONE explicitly-invoked skill —
-`/code-guidelines` — to four AI coding tools (Claude Code, Codex, opencode, Gemini CLI). Once
-installed, that skill detects a target repo's tech stack and keeps curated guardrail rules + lint
-baselines in sync inside it. Read `README.md` first; it is the authoritative product spec.
+A **zero-third-party-dependency** Node.js tool that installs THREE explicitly-invoked commands —
+`/code-guidelines` (sync the curated guardrail rules + the entry-file managed block),
+`/code-guidelines-lint` (arm machine-enforced lint baselines), and `/code-guidelines-distill`
+(distill this repo's own conventions) — to four AI coding tools (Claude Code, Codex, opencode, Gemini
+CLI). Each is manual-only; none fires from intent. Read `README.md` first; it is the authoritative
+product spec.
 
 Node `>=20`. No runtime dependencies — `package.json` has no `dependencies` block, and that is a
 hard product constraint (see `assets/sync.mjs` header), not an accident. Do not add dependencies.
@@ -15,7 +17,7 @@ hard product constraint (see `assets/sync.mjs` header), not an accident. Do not 
 ## Commands
 
 ```sh
-node --test                       # run the whole suite (230+ tests, node:test — no framework)
+node --test                       # run the whole suite (260+ tests, node:test — no framework)
 node --test test/sync.test.mjs    # run one test file
 node --test --test-name-pattern "zero-write"   # run tests matching a name
 npm run build                     # regenerate generated/ from fragments/ + registry.mjs
@@ -40,12 +42,14 @@ the most common mistake is blurring the boundary between them.
 
 2. **Build system** — `src/build/build.mjs` + `src/build/platforms.mjs` + `src/build/registry.mjs`,
    composing `fragments/**` → `generated/<platform>/*`. Runs **at author time** (`npm run build`).
-   The skill's prose lives ONLY in `fragments/` (per-section: `purpose/triggers/behavior/output.md`
-   under `fragments/skill/`, shared body in `fragments/shared/body.md`); each platform's file-format
-   and frontmatter facts live ONLY in `registry.mjs`. Never duplicate prose into the registry.
+   Each command's prose lives ONLY in `fragments/` (per-section `purpose/triggers/behavior/output.md`
+   under `fragments/core/`, `fragments/lint/`, `fragments/distill/`, shared body in
+   `fragments/shared/body.md`); each platform's file-format and frontmatter facts live ONLY in
+   `registry.mjs` (three skill entries). Never duplicate prose into the registry.
 
-3. **Runtime sync engine** — `assets/sync.mjs`. Runs **at skill-invocation time, inside an arbitrary
-   target repo**, when a user types `/code-guidelines`. This is the actual product logic.
+3. **Runtime sync engine** — `assets/sync.mjs`. Runs **at command-invocation time, inside an
+   arbitrary target repo**, when a user types `/code-guidelines`, `/code-guidelines-lint`, or
+   `/code-guidelines-distill`. This is the actual product logic.
 
 ### `assets/sync.mjs` is deliberately standalone — do not "DRY it up"
 
@@ -55,9 +59,10 @@ path**. It inlines its own copies of fs-safety (`assertSafeTarget`), atomic writ
 SHA-256 that mirror `src/install/fsutil.mjs`. This duplication is intentional and load-bearing.
 Do not refactor it to import from `src/`.
 
-The skill body (`fragments/skill/behavior.md`) documents a **manual, no-`node` fallback** that must
-reach the byte-identical end state `sync.mjs` produces. If you change sync semantics, update that
-prose in the same pass, or the two paths diverge.
+The core and lint command bodies (`fragments/core/behavior.md`, `fragments/lint/behavior.md`) each
+document a **manual, no-`node` fallback** that must reach the byte-identical end state `sync.mjs` /
+`sync.mjs lint` produce. If you change sync or lint semantics, update that prose in the same pass, or
+the two paths diverge.
 
 ### Single source of truth: `registry.mjs`
 
@@ -67,10 +72,14 @@ prose in the same pass, or the two paths diverge.
 
 ## Runtime pipeline (`assets/sync.mjs`)
 
-No-arg `sync()` runs, in order: **precheck → detect → select → reconcile → armLint →
-maintainHostBlock → report**. Every stage is a **pure planner** returning a write plan; nothing
-touches disk until a single deferred commit phase at the end. This is why `--dry-run`, `--json`, and
-the zero-write short-circuit (identical state ⇒ write nothing, not even an mtime) fall out for free.
+`assets/sync.mjs` exposes three explicit-invocation commands, one per installed skill: `sync()` =
+`/code-guidelines` (**precheck → detect → select → reconcile → maintainHostBlock → report**: rules +
+the entry-file managed block; carries the manifest `lint`/`conventions` slices through untouched);
+`syncLint()` = `/code-guidelines-lint` (**detect → armLint → report**: lint scaffolds + the manifest
+`lint` slice only; no precheck, no `--platform`, no exit 3); and the `distillRecord()` seam =
+`/code-guidelines-distill`. Every stage is a **pure planner** returning a write plan; nothing touches
+disk until a single deferred commit phase at the end. This is why `--dry-run`, `--json`, and the
+zero-write short-circuit (identical state ⇒ write nothing, not even an mtime) fall out for free.
 
 - **detect** (`SPEC-DETECT-001`) — two-pass predicate eval over `assets/stacks.json` (files /
   packageDeps / extensions with a count threshold / `requiresTags`). See the big comment block above
@@ -79,7 +88,8 @@ the zero-write short-circuit (identical state ⇒ write nothing, not even an mti
   framework→language→domain tier, then specificity, then registry index; capped at 12 rule files
   total. Truncated files are always named in the report, never dropped silently.
 - **reconcile** (`SPEC-RECONCILE-001`) — add/remove/upgrade/skip vs the target manifest.
-- **armLint** (`SPEC-LINT-001`) — first-run-only, three-condition gate; never installs deps (prints
+- **armLint** (`SPEC-LINT-001`) — runs only under `syncLint()` (the `/code-guidelines-lint`
+  command), never the core sync; first-run-only, three-condition gate; never installs deps (prints
   the command instead); deleting an armed scaffold = permanent opt-out.
 
 ### User-edit protection is the invariant everywhere
@@ -95,15 +105,17 @@ This rule holds identically in the installer (`src/install/transaction.mjs`) and
 - `<target-repo>/.code-guidelines/manifest.json` — per-repo reconcile state: rules, lint arm state,
   and the `conventions` record. Shapes and validators live in `src/install/manifest.mjs`.
 
-`distill` (agent-driven, defined in `fragments/skill/behavior.md` prose — NOT a script) is the only
-writer of `project-conventions.md` + the manifest `conventions` field. No-arg sync only *reports* it.
-`distillRecord()` in `sync.mjs` is the deterministic manifest-recording seam distill calls.
+`distill` (agent-driven, defined in `fragments/distill/behavior.md` prose — NOT a script; the
+`/code-guidelines-distill` command) is the only writer of `project-conventions.md` + the manifest
+`conventions` field. The core sync only *reports* it. `distillRecord()` in `sync.mjs` is the
+deterministic manifest-recording seam distill calls.
 
 ## Exit codes (shared across CLI and sync)
 
-`0` ok · `2` usage error · `3` precheck abort (platform entry file `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`
-missing — the tool never creates it) · `4` conflict/safety abort (user-modified file, rejected
-symlink, or malformed managed block).
+`0` ok · `2` usage error · `3` precheck abort (**core `/code-guidelines` only** — platform entry file
+`CLAUDE.md`/`AGENTS.md`/`GEMINI.md` missing; the tool never creates it; the lint/distill commands do
+not maintain the block, so they never emit `3`) · `4` conflict/safety abort (user-modified file,
+rejected symlink, or malformed managed block).
 
 ## Determinism is a hard requirement (`RISK-DET-001`)
 

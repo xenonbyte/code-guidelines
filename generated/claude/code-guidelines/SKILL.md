@@ -1,5 +1,9 @@
-description = 'Explicit-invocation only: run only when the user types /code-guidelines. Never invoke from intent, keywords, or as a side effect of coding tasks.'
-prompt = '''
+---
+name: code-guidelines
+description: "Explicit-invocation only: run only when the user types /code-guidelines. Never invoke from intent, keywords, or as a side effect of coding tasks."
+disable-model-invocation: true
+---
+
 This skill package keeps its rule library, lint baselines, and distillation tooling in one shared location on this machine, `~/.code-guidelines/`:
 
 - `library/` — the curated, per-stack rule files this skill installs into target repositories.
@@ -58,7 +62,7 @@ This command does not arm lint baselines or distill conventions — those are th
 
 ### Manual fallback (no `node` available)
 
-The preferred path is running `node ~/.code-guidelines/sync.mjs --platform gemini`. When `node` is not available, carry out steps 1–5 above by hand, using ordinary file-reading and shell tools, with these substitutions — this is required to reach the exact same end state `sync.mjs` would, not an approximation of it:
+The preferred path is running `node ~/.code-guidelines/sync.mjs --platform claude`. When `node` is not available, carry out steps 1–5 above by hand, using ordinary file-reading and shell tools, with these substitutions — this is required to reach the exact same end state `sync.mjs` would, not an approximation of it:
 
 - Read `~/.code-guidelines/stacks.json` and `.code-guidelines/manifest.json` as plain JSON; evaluate each predicate by inspecting the files it names directly.
 - Compute a file's content hash with `shasum -a 256 <file>` (or `sha256sum <file>` where available) after normalizing its line endings to `\n`, and compare that digest against the manifest's recorded value character for character. This must be the exact algorithm `sync.mjs` uses — SHA-256 over LF-normalized content — never substitute a different digest, and never substitute a byte-for-byte `diff` in its place, since either can disagree with the manifest's recorded hashes.
@@ -99,4 +103,3 @@ Every run ends with a status report, whether or not anything was written:
     }
 
 Exit codes are shared across this package's commands: `0` success; `2` usage error; `3` the platform precheck aborted (entry-point file missing); `4` a conflict or safety abort (a user-modified file, a rejected symlink, or a malformed managed block).
-'''

@@ -1037,16 +1037,10 @@ export async function sync(opts = {}) {
   const platform = opts.platform;
   const dryRun = Boolean(opts.dryRun);
   const json = Boolean(opts.json);
-  const relint = opts.relint ?? null;
-  const now = opts.now ?? undefined;
-
   // Usage validation (exit 2).
   const entryFile = platform ? PLATFORM_ENTRY[platform] : undefined;
   if (!entryFile) {
     return finalize({ exitCode: 2, message: `usage: unknown or missing --platform '${platform ?? ''}'`, json });
-  }
-  if (relint != null && !LINT_KEYS.has(relint)) {
-    return finalize({ exitCode: 2, message: `usage: unknown --relint tool '${relint}'`, json });
   }
 
   // Pipeline step 1: precheck (SPEC-PRECHECK-001). Any missing current-platform entry -> exit 3,
@@ -1084,13 +1078,10 @@ export async function sync(opts = {}) {
     throw err;
   }
 
-  // Step 5: reconcile (never touches conventions).
+  // Step 5: reconcile (never touches conventions or the lint records).
   const rulePlan = reconcile(selected, manifest, { repoRoot, assetRoot });
 
-  // Step 6: lint arm.
-  const lintPlan = armLint(hits, manifest, { repoRoot, assetRoot, relint, now });
-
-  // Step 7: host block. conventions pointer if project-conventions.md present on disk.
+  // Step 6: host block. conventions pointer if project-conventions.md present on disk.
   const conventionsPresent = existsSync(join(repoRoot, '.code-guidelines', 'project-conventions.md'));
   const ruleAppliesTo = loadRuleAppliesTo(join(assetRoot, 'library'), ruleFilesOf(selected));
   const pointers = buildPointers(selected, conventionsPresent, ruleAppliesTo);
@@ -1108,7 +1099,9 @@ export async function sync(opts = {}) {
   const nextManifest = {
     version: manifest.version ?? readVersion(assetRoot),
     rules: rulePlan.nextRules,
-    lint: lintPlan.nextLint,
+    // Lint records belong to `/code-guidelines-lint`; carry them through untouched so a core
+    // sync never clears what the lint command armed (mirror of the conventions pass-through).
+    lint: Array.isArray(manifest.lint) ? manifest.lint : [],
     conventions: manifest.conventions ?? null,
   };
   const nextManifestStr = serializeManifest(nextManifest);
@@ -1118,14 +1111,12 @@ export async function sync(opts = {}) {
   const anyFileWrites =
     rulePlan.writes.length > 0 ||
     rulePlan.removals.length > 0 ||
-    lintPlan.writes.length > 0 ||
     hostPlan.writes.length > 0;
   const upToDate = !anyFileWrites && !manifestChanged;
 
   const status = buildStatus({
     upToDate,
     rulePlan,
-    lintPlan,
     truncated,
     conventionsPresent,
     conventions: manifest.conventions,
@@ -1146,7 +1137,6 @@ export async function sync(opts = {}) {
   const allowedRoots = [repoRoot];
   const contentWrites = [
     ...rulePlan.writes.map((w) => ({ absPath: w.absPath, content: w.content })),
-    ...lintPlan.writes.map((w) => ({ absPath: w.absPath, content: w.content })),
     ...hostPlan.writes.map((w) => ({ absPath: w.absPath, content: w.content })),
   ];
   const manifestWrite = manifestChanged
@@ -1191,7 +1181,107 @@ export async function sync(opts = {}) {
   return finalize({ exitCode: 0, status, json });
 }
 
-function buildStatus({ upToDate, rulePlan, lintPlan, truncated, conventionsPresent, conventions }) {
+// ---------------------------------------------------------------------------------------------
+// SPEC-LINT-001: `/code-guidelines-lint` — detect → arm lint → report. A separate command from the
+// core sync: it writes ONLY lint scaffolds + the manifest's `lint` slice, carrying `rules` and
+// `conventions` through untouched, and never touches the entry-file managed block (so no precheck,
+// no `--platform`, no exit 3). Same pure-planner-then-deferred-commit + zero-write shape as sync().
+// ---------------------------------------------------------------------------------------------
+export async function syncLint(opts = {}) {
+  const repoRoot = opts.repoRoot ?? process.cwd();
+  const assetRoot = opts.assetRoot ?? DEFAULT_ASSET_ROOT;
+  const dryRun = Boolean(opts.dryRun);
+  const json = Boolean(opts.json);
+  const relint = opts.relint ?? null;
+  const now = opts.now ?? undefined;
+
+  if (relint != null && !LINT_KEYS.has(relint)) {
+    return finalizeLint({ exitCode: 2, message: `usage: unknown --relint tool '${relint}'`, json });
+  }
+
+  // Detect (same predicate eval as core sync).
+  const hits = detect(repoRoot, { assetRoot });
+
+  // Load manifest (invalid target manifest -> exit 4, zero writes).
+  let manifest;
+  try {
+    manifest = loadTargetManifest(repoRoot) ?? {
+      version: readVersion(assetRoot),
+      rules: [],
+      lint: [],
+      conventions: null,
+    };
+  } catch (err) {
+    if (err.code === 'ERR_INVALID_TARGET_MANIFEST') {
+      return finalizeLint({
+        exitCode: 4,
+        message: `target manifest 不合法:${err.message},已中止且零写入`,
+        json,
+      });
+    }
+    throw err;
+  }
+
+  const lintPlan = armLint(hits, manifest, { repoRoot, assetRoot, relint, now });
+
+  // Assemble next manifest: update ONLY the lint slice, preserve rules + conventions verbatim.
+  const nextManifest = {
+    version: manifest.version ?? readVersion(assetRoot),
+    rules: Array.isArray(manifest.rules) ? manifest.rules : [],
+    lint: lintPlan.nextLint,
+    conventions: manifest.conventions ?? null,
+  };
+  const nextManifestStr = serializeManifest(nextManifest);
+  const currentManifestStr = readIfExists(join(repoRoot, '.code-guidelines', 'manifest.json'));
+  const manifestChanged = nextManifestStr !== currentManifestStr;
+
+  // Never materialize an empty `.code-guidelines/manifest.json` just because the lint command ran
+  // in a repo that has nothing to arm and no prior manifest — that would be a surprise write.
+  // Only persist when there is a scaffold to write, a lint record to keep, or a manifest to update.
+  const noManifestYet = currentManifestStr === null;
+  const nothingToPersist = lintPlan.writes.length === 0 && lintPlan.nextLint.length === 0 && noManifestYet;
+  const upToDate = nothingToPersist || (lintPlan.writes.length === 0 && !manifestChanged);
+  const status = buildLintStatus({ upToDate, lintPlan });
+
+  // Zero-write short-circuit / --dry-run: compute + report, no writes.
+  if (upToDate) return finalizeLint({ exitCode: 0, status, json, upToDate: true });
+  if (dryRun) return finalizeLint({ exitCode: 0, status, json, dryRun: true });
+
+  // Commit phase: safety-check every target first, then write, manifest last.
+  const allowedRoots = [repoRoot];
+  const contentWrites = lintPlan.writes.map((w) => ({ absPath: w.absPath, content: w.content }));
+  const manifestWrite = manifestChanged
+    ? { absPath: join(repoRoot, '.code-guidelines', 'manifest.json'), content: nextManifestStr }
+    : null;
+
+  try {
+    for (const w of contentWrites) assertSafeTarget(w.absPath, allowedRoots);
+    if (manifestWrite) assertSafeTarget(manifestWrite.absPath, allowedRoots);
+  } catch (err) {
+    return finalizeLint({ exitCode: 4, message: `fs-safety 拒绝:${err.message},已中止且零写入`, json });
+  }
+
+  try {
+    for (const w of contentWrites) {
+      mkdirSync(dirname(w.absPath), { recursive: true });
+      atomicWriteFile(w.absPath, w.content);
+    }
+    if (manifestWrite) {
+      mkdirSync(dirname(manifestWrite.absPath), { recursive: true });
+      atomicWriteFile(manifestWrite.absPath, manifestWrite.content);
+    }
+  } catch (err) {
+    return finalizeLint({
+      exitCode: 4,
+      message: `lint 提交阶段写入失败:${err.message},已中止;manifest 未回写,避免描述与磁盘不符的状态`,
+      json,
+    });
+  }
+
+  return finalizeLint({ exitCode: 0, status, json });
+}
+
+function buildStatus({ upToDate, rulePlan, truncated, conventionsPresent, conventions }) {
   return {
     upToDate,
     added: rulePlan.added.map((a) => a.file),
@@ -1199,13 +1289,6 @@ function buildStatus({ upToDate, rulePlan, lintPlan, truncated, conventionsPrese
     upgraded: rulePlan.upgraded.map((u) => u.file),
     skipped: rulePlan.skipped.map((s) => ({ file: s.file, reason: s.reason })),
     truncated: truncated.map((t) => (t.rules && t.rules[0] ? `${t.rules[0]}.md` : t.id)),
-    lint: lintPlan.status.map((row) => {
-      const out = { tool: row.tool, armed: Boolean(row.armed), gap: Boolean(row.gap) };
-      if (row.installCmd) out.installCmd = row.installCmd;
-      if (row.optedOut) out.optedOut = true;
-      if (row.reason) out.reason = row.reason;
-      return out;
-    }),
     conventions: {
       present: conventionsPresent,
       ...(conventions && conventions.distilledAt ? { distilledAt: conventions.distilledAt } : {}),
@@ -1213,22 +1296,50 @@ function buildStatus({ upToDate, rulePlan, lintPlan, truncated, conventionsPrese
   };
 }
 
+function buildLintStatus({ upToDate, lintPlan }) {
+  return {
+    upToDate,
+    lint: lintPlan.status.map((row) => {
+      const out = { tool: row.tool, armed: Boolean(row.armed), gap: Boolean(row.gap) };
+      if (row.installCmd) out.installCmd = row.installCmd;
+      if (row.optedOut) out.optedOut = true;
+      if (row.reason) out.reason = row.reason;
+      return out;
+    }),
+  };
+}
+
 function finalize({ exitCode, status, message, json, upToDate, dryRun }) {
   if (json) {
     const obj = status
       ? { ...status, exitCode }
-      : { upToDate: false, added: [], removed: [], upgraded: [], skipped: [], truncated: [], lint: [], conventions: { present: false }, exitCode, message };
+      : { upToDate: false, added: [], removed: [], upgraded: [], skipped: [], truncated: [], conventions: { present: false }, exitCode, message };
     return { exitCode, json: obj, text: null };
   }
   const text = message ?? renderTextReport(status, { upToDate, dryRun });
   return { exitCode, json: null, text, status };
 }
 
+// `/code-guidelines-lint` report finalizer — its own JSON/text shape (only `lint`), separate from
+// the core sync report above so the two commands never leak each other's fields.
+function finalizeLint({ exitCode, status, message, json, upToDate, dryRun }) {
+  if (json) {
+    const obj = status ? { ...status, exitCode } : { upToDate: false, lint: [], exitCode, message };
+    return { exitCode, json: obj, text: null };
+  }
+  const text = message ?? renderLintReport(status, { upToDate, dryRun });
+  return { exitCode, json: null, text, status };
+}
+
+// Companion-command discoverability line printed on every core report (the user only ever asked
+// for lint/distill by their own commands, so the core report points at them without doing their
+// work).
+const CORE_HINT = '提示: /code-guidelines-lint 布防 lint 基线,/code-guidelines-distill 蒸馏本仓库约定';
+
 function renderTextReport(status, { upToDate, dryRun } = {}) {
   if (!status) return '';
-  const hasLintNotice = status.lint.some((row) => row.optedOut || row.reason);
   const hasRuleNotice = status.skipped.length > 0;
-  if (upToDate && !hasLintNotice && !hasRuleNotice) return '已是最新,无变更';
+  if (upToDate && !hasRuleNotice) return `已是最新,无变更\n${CORE_HINT}`;
   const lines = [];
   if (upToDate) lines.push('已是最新,无变更');
   if (dryRun) lines.push('[dry-run] 以下为拟改动,未写盘:');
@@ -1239,6 +1350,21 @@ function renderTextReport(status, { upToDate, dryRun } = {}) {
     `跳过: ${status.skipped.length ? status.skipped.map((s) => `${s.file}(${s.reason})`).join(', ') : '(无)'}`,
   );
   if (status.truncated.length) lines.push(`截断(超 12 上限): ${status.truncated.join(', ')}`);
+  lines.push(
+    `project-conventions.md: ${status.conventions.present ? '存在' : '不存在'}${status.conventions.distilledAt ? ` (蒸馏于 ${status.conventions.distilledAt})` : ''}`,
+  );
+  lines.push(CORE_HINT);
+  return lines.join('\n');
+}
+
+function renderLintReport(status, { upToDate, dryRun } = {}) {
+  if (!status) return '';
+  const hasNotice = status.lint.some((row) => row.optedOut || row.reason);
+  if (upToDate && !hasNotice) return '已是最新,无变更';
+  const lines = [];
+  if (upToDate) lines.push('已是最新,无变更');
+  if (dryRun) lines.push('[dry-run] 以下为拟改动,未写盘:');
+  if (!status.lint.length) lines.push('未检测到可布防的 lint 工具链');
   for (const row of status.lint) {
     if (row.armed && row.gap) lines.push(`lint ${row.tool}: 已布防,依赖缺口 -> ${row.installCmd}`);
     else if (row.optedOut) lines.push(`lint ${row.tool}: 已退出(用户删除脚手架)`);
@@ -1248,9 +1374,6 @@ function renderTextReport(status, { upToDate, dryRun } = {}) {
     else if (row.armed) lines.push(`lint ${row.tool}: 已布防`);
     else lines.push(`lint ${row.tool}: 已有配置,只读推荐`);
   }
-  lines.push(
-    `project-conventions.md: ${status.conventions.present ? '存在' : '不存在'}${status.conventions.distilledAt ? ` (蒸馏于 ${status.conventions.distilledAt})` : ''}`,
-  );
   return lines.join('\n');
 }
 
@@ -1259,12 +1382,26 @@ function renderTextReport(status, { upToDate, dryRun } = {}) {
 // ---------------------------------------------------------------------------------------------
 
 function parseArgs(argv) {
-  const opts = { platform: undefined, dryRun: false, json: false, relint: null, distillRecord: null, force: false };
-  for (let i = 0; i < argv.length; i += 1) {
-    const arg = argv[i];
+  const opts = {
+    command: 'sync',
+    platform: undefined,
+    dryRun: false,
+    json: false,
+    relint: null,
+    distillRecord: null,
+    force: false,
+  };
+  const rest = [...argv];
+  // Positional subcommand: `lint` selects `/code-guidelines-lint`. Absent -> the core sync command.
+  if (rest[0] === 'lint') {
+    opts.command = 'lint';
+    rest.shift();
+  }
+  for (let i = 0; i < rest.length; i += 1) {
+    const arg = rest[i];
     switch (arg) {
       case '--platform':
-        opts.platform = argv[++i];
+        opts.platform = rest[++i];
         break;
       case '--dry-run':
         opts.dryRun = true;
@@ -1273,10 +1410,11 @@ function parseArgs(argv) {
         opts.json = true;
         break;
       case '--relint':
-        opts.relint = argv[++i];
+        opts.relint = rest[++i];
         break;
       case '--distill-record':
-        opts.distillRecord = argv[++i];
+        opts.distillRecord = rest[++i];
+        opts.command = 'distill-record';
         break;
       case '--force':
         opts.force = true;
@@ -1284,6 +1422,10 @@ function parseArgs(argv) {
       default:
         return { error: `unknown option: ${arg}` };
     }
+  }
+  // --relint only arms lint, so it is only valid under the `lint` command.
+  if (opts.relint != null && opts.command !== 'lint') {
+    return { error: `--relint is only valid with the 'lint' command` };
   }
   return { opts };
 }
@@ -1315,7 +1457,7 @@ async function main() {
     process.exit(res.exitCode);
   }
 
-  const result = await sync(opts);
+  const result = opts.command === 'lint' ? await syncLint(opts) : await sync(opts);
   if (result.json) process.stdout.write(`${JSON.stringify(result.json, null, 2)}\n`);
   else if (result.text) process.stdout.write(`${result.text}\n`);
   process.exit(result.exitCode);

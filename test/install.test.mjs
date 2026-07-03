@@ -93,7 +93,7 @@ test('install: fresh install writes products + shared assets and a valid manifes
     assert.equal(rc, 0);
 
     assert.equal(
-      readFileSync(join(cfg.platformRoots.claude, 'SKILL.md'), 'utf8'),
+      readFileSync(join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude), 'utf8'),
       'product claude v1\n'
     );
     assert.equal(
@@ -105,7 +105,7 @@ test('install: fresh install writes products + shared assets and a valid manifes
     const manifest = await loadManifest(cfg.manifestPath);
     assert.ok(validateInstallManifest(manifest), 'manifest must pass shape validation');
     assert.deepEqual(manifest.platforms, ['claude', 'codex']);
-    assert.deepEqual(manifest.skills, ['code-guidelines']);
+    assert.deepEqual(manifest.skills, ['code-guidelines', 'code-guidelines-lint', 'code-guidelines-distill']);
     assert.equal(manifest.files.length, makeSources(cfg, platforms).length);
     assert.ok(!hasStagingResidue(home), 'no staging temp residue');
   } finally {
@@ -127,7 +127,7 @@ test('install: reinstall stages new content then swaps it in', async () => {
     );
     assert.equal(rc, 0);
     assert.equal(
-      readFileSync(join(cfg.platformRoots.claude, 'SKILL.md'), 'utf8'),
+      readFileSync(join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude), 'utf8'),
       'product claude v2\n'
     );
     assert.ok(!hasStagingResidue(home));
@@ -146,7 +146,7 @@ test('install: rerunning an identical install is a conflict-free no-op (idempote
     );
     assert.equal(rc, 0);
     assert.equal(
-      readFileSync(join(cfg.platformRoots.claude, 'SKILL.md'), 'utf8'),
+      readFileSync(join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude), 'utf8'),
       'product claude v1\n'
     );
   } finally {
@@ -162,7 +162,7 @@ test('transaction: a pre-commit staging failure discards staging and leaves the 
     const cfg = resolveConfig({ home });
     // First, a clean install to have an "original" to protect.
     await captureConsole(() => install(['claude'], { home, sources: makeSources(cfg, ['claude']) }));
-    const skillPath = join(cfg.platformRoots.claude, 'SKILL.md');
+    const skillPath = join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude);
     const originalProduct = readFileSync(skillPath, 'utf8');
     const originalManifest = readFileSync(cfg.manifestPath, 'utf8');
     const priorManifest = JSON.parse(originalManifest);
@@ -201,7 +201,7 @@ test('install: a user-modified owned file aborts with exit 4 and changes nothing
   try {
     const cfg = resolveConfig({ home });
     await captureConsole(() => install(['claude'], { home, sources: makeSources(cfg, ['claude']) }));
-    const skillPath = join(cfg.platformRoots.claude, 'SKILL.md');
+    const skillPath = join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude);
     writeFileSync(skillPath, 'USER EDITED THIS\n');
     const manifestBefore = readFileSync(cfg.manifestPath, 'utf8');
 
@@ -220,7 +220,7 @@ test('install: a foreign unmarked file at a target aborts with exit 4 and writes
   const home = makeTmpHome();
   try {
     const cfg = resolveConfig({ home });
-    const skillPath = join(cfg.platformRoots.claude, 'SKILL.md');
+    const skillPath = join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude);
     mkdirSync(dirname(skillPath), { recursive: true });
     writeFileSync(skillPath, 'pre-existing foreign content\n');
 
@@ -276,7 +276,7 @@ test('install: a symlink AT a target aborts with exit 4 and zero disk change', a
     const cfg = resolveConfig({ home });
     const decoy = join(elsewhere, 'decoy.md');
     writeFileSync(decoy, 'decoy content\n');
-    const skillPath = join(cfg.platformRoots.claude, 'SKILL.md');
+    const skillPath = join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude);
     mkdirSync(dirname(skillPath), { recursive: true });
     symlinkSync(decoy, skillPath);
 
@@ -327,7 +327,7 @@ test('install: exit 2 when the existing install manifest is not valid JSON, and 
       install(['claude'], { home, sources: makeSources(cfg, ['claude']) })
     );
     assert.equal(rc, 2);
-    assert.ok(!existsSync(join(cfg.platformRoots.claude, 'SKILL.md')), 'no product written');
+    assert.ok(!existsSync(join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude)), 'no product written');
     assert.ok(!existsSync(join(cfg.sharedRoot, 'library', 'core.md')), 'no shared asset written');
     assert.equal(readFileSync(cfg.manifestPath, 'utf8'), before, 'corrupt manifest left untouched');
   } finally {
@@ -347,7 +347,7 @@ test('install: exit 2 when the existing install manifest has an invalid shape, a
       install(['claude'], { home, sources: makeSources(cfg, ['claude']) })
     );
     assert.equal(rc, 2);
-    assert.ok(!existsSync(join(cfg.platformRoots.claude, 'SKILL.md')), 'no product written');
+    assert.ok(!existsSync(join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude)), 'no product written');
     assert.ok(!existsSync(join(cfg.sharedRoot, 'library', 'core.md')), 'no shared asset written');
     assert.equal(readFileSync(cfg.manifestPath, 'utf8'), before, 'invalid-shape manifest left untouched');
   } finally {
@@ -369,7 +369,7 @@ test('uninstall: removes all owned files, the manifest, and the now-empty shared
     assert.equal(rc, 0);
     assert.ok(!existsSync(cfg.manifestPath), 'manifest removed');
     assert.ok(!existsSync(cfg.sharedRoot), 'empty shared root pruned');
-    assert.ok(!existsSync(join(cfg.platformRoots.claude, 'SKILL.md')), 'claude product removed');
+    assert.ok(!existsSync(join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude)), 'claude product removed');
     assert.ok(!existsSync(join(cfg.platformRoots.gemini, 'code-guidelines.toml')), 'gemini product removed');
   } finally {
     cleanup(home);
@@ -394,7 +394,7 @@ test('uninstall: skips (and keeps) a user-modified owned file, retaining it in t
   try {
     const cfg = resolveConfig({ home });
     await captureConsole(() => install(['claude'], { home, sources: makeSources(cfg, ['claude']) }));
-    const skillPath = join(cfg.platformRoots.claude, 'SKILL.md');
+    const skillPath = join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude);
     writeFileSync(skillPath, 'USER EDITED\n');
 
     const { rc, out } = await captureConsole(() => uninstall(['claude'], { home }));
@@ -490,7 +490,7 @@ test('install: converges idempotently after a simulated mid-commit interruption 
     // Simulate a crash midway through a v2 install that (a) changes the claude product to v2 and
     // (b) drops codex: the new claude content was renamed in, codex was NOT yet removed, and the
     // manifest was NOT yet rewritten (still records v1 + both platforms).
-    const skillPath = join(cfg.platformRoots.claude, 'SKILL.md');
+    const skillPath = join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude);
     writeFileSync(skillPath, 'product claude v2\n'); // "already renamed in"
     // codex product left in place; manifest left as v1.
 
@@ -530,7 +530,7 @@ test('install: reinstalling a platform subset removes the no-longer-installed pl
       install(['claude'], { home, sources: makeSources(cfg, ['claude']) })
     );
     assert.equal(rc, 0);
-    assert.ok(existsSync(join(cfg.platformRoots.claude, 'SKILL.md')));
+    assert.ok(existsSync(join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude)));
     assert.ok(!existsSync(join(cfg.platformRoots.codex, 'code-guidelines.md')), 'codex removed');
     const manifest = await loadManifest(cfg.manifestPath);
     assert.deepEqual(manifest.platforms, ['claude']);

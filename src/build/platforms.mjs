@@ -109,7 +109,7 @@ function substituteLine(line, vars) {
 // The single sentence every platform's description/frontmatter carries verbatim: the
 // negative-invocation guard (SCOPE-IN-006, SPEC-TRIGGER-001). Sourced from fragments.own
 // ['triggers.md'] rather than duplicated here, so there is exactly one place this text is
-// authored (fragments/skill/triggers.md, PLAN-TASK-007).
+// authored (each command's own fragments/<fragmentsDir>/triggers.md).
 function guardText(fragments) {
   return fragments.own['triggers.md'].trim();
 }
@@ -130,14 +130,13 @@ function burnInPlatform(text, platform) {
   return text.replaceAll('{{PLATFORM}}', platform);
 }
 
-function sharedVars(fragments, argumentPlaceholder, platform) {
+function sharedVars(fragments, platform) {
   return {
     SHARED_BODY: burnInPlatform(fragments.shared['body.md'].trim(), platform),
     PURPOSE: burnInPlatform(fragments.own['purpose.md'].trim(), platform),
     TRIGGERS: burnInPlatform(fragments.own['triggers.md'].trim(), platform),
     BEHAVIOR: burnInPlatform(fragments.own['behavior.md'].trim(), platform),
     OUTPUT: burnInPlatform(fragments.own['output.md'].trim(), platform),
-    ARGUMENT_PLACEHOLDER: argumentPlaceholder,
   };
 }
 
@@ -157,9 +156,8 @@ function renderSkillFormat({ params, fragments, platform }) {
   const vars = {
     name: params.frontmatter?.name,
     'disable-model-invocation': params.frontmatter?.['disable-model-invocation'],
-    'argument-hint': params.frontmatter?.['argument-hint'],
     DESCRIPTION: JSON.stringify(guardText(fragments)),
-    ...sharedVars(fragments, params.argumentPlaceholder, platform),
+    ...sharedVars(fragments, platform),
   };
   return renderTemplate(SKILL_TEMPLATE, vars);
 }
@@ -169,10 +167,10 @@ function renderSkillFormat({ params, fragments, platform }) {
  * DESCRIPTION convention as renderSkillFormat (see rationale there); no structural frontmatter
  * keys are emitted today (registry.mjs's opencode `frontmatter` is `{}`).
  */
-function renderCommandFormat({ params, fragments, platform }) {
+function renderCommandFormat({ fragments, platform }) {
   const vars = {
     DESCRIPTION: JSON.stringify(guardText(fragments)),
-    ...sharedVars(fragments, params.argumentPlaceholder, platform),
+    ...sharedVars(fragments, platform),
   };
   return renderTemplate(COMMAND_TEMPLATE, vars);
 }
@@ -184,10 +182,10 @@ function renderCommandFormat({ params, fragments, platform }) {
  * literal string needs no escaping for this text (it contains neither a `'''` run nor a trailing
  * apostrophe that would need padding).
  */
-function renderGeminiFormat({ params, fragments, platform }) {
+function renderGeminiFormat({ fragments, platform }) {
   const vars = {
     DESCRIPTION: guardText(fragments),
-    ...sharedVars(fragments, params.argumentPlaceholder, platform),
+    ...sharedVars(fragments, platform),
   };
   return renderTemplate(GEMINI_TEMPLATE, vars);
 }

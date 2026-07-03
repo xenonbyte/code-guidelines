@@ -1,10 +1,13 @@
 # code-guidelines
 
-A zero-third-party-dependency Node.js installer that delivers one explicitly-invoked skill,
-`/code-guidelines`, to four AI coding tools — Claude Code, Codex, opencode, and Gemini CLI. Once
-installed, the skill can detect a target repository's tech stack, keep a curated set of guardrail
-rules and lint baselines in sync inside that repository, and (on request) distill the repository's
-own real conventions into a project-specific guardrail file.
+A zero-third-party-dependency Node.js installer that delivers three explicitly-invoked commands —
+`/code-guidelines`, `/code-guidelines-lint`, and `/code-guidelines-distill` — to four AI coding
+tools: Claude Code, Codex, opencode, and Gemini CLI. Once installed, `/code-guidelines` detects a
+target repository's tech stack and keeps a curated set of guardrail rules (plus a managed pointer
+block in the entry file) in sync; `/code-guidelines-lint` arms machine-enforced lint baselines for
+the detected stack; and `/code-guidelines-distill` distills the repository's own real conventions
+into a project-specific guardrail file. Each command is manual-only and does one thing — none fires
+from intent.
 
 See [README.zh-CN.md](README.zh-CN.md) for the Simplified Chinese version of this document (aligned
 section by section with this one).
@@ -12,28 +15,34 @@ section by section with this one).
 ## Overview
 
 `code-guidelines` follows a progressive-disclosure design: instead of dumping hundreds of rules
-into a single context-hungry file, it delivers three layers of constraints on demand —
+into a single context-hungry file, it delivers three layers of constraints on demand, each behind
+its own explicit command —
 
-1. a small, curated library of 48 guardrail rule files (one per supported stack/framework/language);
-2. machine-enforced lint baselines (11 toolchains) that are armed once, for free, the first time a
-   stack is detected and the project has no existing lint configuration for that tool;
-3. a project-specific `project-conventions.md`, distilled on request from the target repository's
-   own source code.
+1. `/code-guidelines` — a small, curated library of 48 guardrail rule files (one per supported
+   stack/framework/language), plus a managed pointer block in the entry file;
+2. `/code-guidelines-lint` — machine-enforced lint baselines (11 toolchains), armed once the first
+   time a stack is detected and the project has no existing lint configuration for that tool;
+3. `/code-guidelines-distill` — a project-specific `project-conventions.md`, distilled from the
+   target repository's own source code.
 
-The skill is installed once per machine (per platform) via the `code-guidelines` CLI, and then
-invoked per target project by explicitly typing `/code-guidelines`.
+The three commands are installed once per machine (per platform) via the `code-guidelines` CLI, and
+then invoked per target project by explicitly typing the command — each does only what you asked
+for, nothing more.
 
 ## Supported platforms
 
-The one skill is delivered to four AI coding tools. Each receives the platform-native artifact form
-and manages that platform's own entry file:
+The three commands are delivered to four AI coding tools. Each tool receives the platform-native
+artifact form (one file per command) and manages that platform's own entry file. The table shows the
+core command's artifact; the `-lint` and `-distill` commands sit right beside it — a sibling
+`code-guidelines-lint/` / `code-guidelines-distill/` skill directory on Claude Code, or a
+`code-guidelines-lint.<ext>` / `code-guidelines-distill.<ext>` file in the same directory elsewhere:
 
-| Platform | Installed skill artifact | Entry file it manages | Invocation |
+| Platform | Installed skill artifact (core command) | Entry file it manages | Invocation |
 |---|---|---|---|
-| Claude Code | `~/.claude/skills/code-guidelines/SKILL.md` (Markdown + `disable-model-invocation: true`) | `CLAUDE.md` | `/code-guidelines` |
-| Codex | `~/.codex/prompts/code-guidelines.md` (custom prompt) | `AGENTS.md` | `/code-guidelines` |
-| opencode | `~/.config/opencode/commands/code-guidelines.md` | `AGENTS.md` | `/code-guidelines` |
-| Gemini CLI | `~/.gemini/commands/code-guidelines.toml` (TOML) | `GEMINI.md` | `/code-guidelines` |
+| Claude Code | `~/.claude/skills/code-guidelines/SKILL.md` (Markdown + `disable-model-invocation: true`) | `CLAUDE.md` | `/code-guidelines`, `/code-guidelines-lint`, `/code-guidelines-distill` |
+| Codex | `~/.codex/prompts/code-guidelines.md` (custom prompt) | `AGENTS.md` | the same three |
+| opencode | `~/.config/opencode/commands/code-guidelines.md` | `AGENTS.md` | the same three |
+| Gemini CLI | `~/.gemini/commands/code-guidelines.toml` (TOML) | `GEMINI.md` | the same three |
 
 The `--platform` flag on `install` / `uninstall` accepts any comma-separated subset of `claude`,
 `codex`, `opencode`, `gemini` (default: all four).
@@ -54,8 +63,9 @@ rule files per repository:
 - **DevOps (4):** Docker, Kubernetes, Terraform, GitHub Actions.
 - **Cross-cutting (3):** REST API, Security (OWASP-oriented), Accessibility (a11y).
 
-**Lint baselines (11 toolchains)** are armed once, for free, when a stack is first detected and the
-project has no existing config for that tool — using each tool's current (non-deprecated) format:
+**Lint baselines (11 toolchains)** are armed by the separate `/code-guidelines-lint` command, once
+per tool, when a stack is detected and the project has no existing config for that tool — using each
+tool's current (non-deprecated) format:
 
 | Language | Baseline configs |
 |---|---|
@@ -106,54 +116,60 @@ Other CLI commands:
   has not seen modified by hand.
 - `code-guidelines version` / `help` — print version / usage.
 
-### 2. Invoke the skill in a target project
+### 2. Invoke a command in a target project
 
-Inside any target repository, with the platform's entry file already present (`CLAUDE.md`,
-`AGENTS.md`, or `GEMINI.md` — see "What gets generated" below), type:
+Inside any target repository, type one of the three commands. `/code-guidelines` requires the
+platform's entry file to already exist (`CLAUDE.md`, `AGENTS.md`, or `GEMINI.md` — see "What gets
+generated" below); the other two write only inside `.code-guidelines/` (and, for lint, the tool
+config files) and do not require it:
 
-- `/code-guidelines` — no-argument sync. Detects the tech stack, reconciles the rule library and
-  lint baselines inside `.code-guidelines/`, arms lint scaffolding the first time it applies, and
-  maintains a managed block inside the entry file. Running it again with nothing changed writes
-  nothing (idempotent, zero-write).
-- `/code-guidelines distill` — one-shot, agent-driven distillation of this specific repository's
+- `/code-guidelines` — detects the tech stack, reconciles the rule library inside
+  `.code-guidelines/`, and maintains a managed pointer block inside the entry file. Running it again
+  with nothing changed writes nothing (idempotent, zero-write). It never arms lint or distills.
+- `/code-guidelines-lint` — arms the machine-enforced lint baseline for each detected stack that has
+  no existing config for that tool, the first time it applies. It writes the tool's config files but
+  never installs dependencies — it prints the exact command instead. Deleting an armed scaffold is a
+  permanent opt-out.
+- `/code-guidelines-distill` — one-shot, agent-driven distillation of this specific repository's
   real conventions (naming, structure, error handling, tooling choices, test patterns) into
   `.code-guidelines/project-conventions.md`. See the residual-risk note below before relying on it.
 
 ### 3. Read the output
 
-Every no-argument run ends with a status report covering:
+Each command ends with a status report.
 
-- files added / removed / upgraded / skipped this run, including anything skipped because a user
-  had edited it by hand (those are never silently overwritten);
-- per lint tool: whether it is armed, whether there is a gap (with the exact install command to
-  run — dependencies are never installed automatically), or whether the user has opted out by
-  deleting the scaffold;
-- whether `project-conventions.md` exists and, if so, when it was last distilled (stated as a
-  fact, not judged as stale or fresh).
+- `/code-guidelines` covers files added / removed / upgraded / skipped this run (anything a user
+  edited by hand is skipped, never silently overwritten), whether `project-conventions.md` exists
+  and, if so, when it was last distilled (stated as a fact, not judged stale or fresh), and a
+  one-line pointer to the two companion commands.
+- `/code-guidelines-lint` reports, per lint tool: whether it is armed, whether there is a dependency
+  gap (with the exact install command to run — dependencies are never installed automatically),
+  whether an existing config was left untouched (read-only recommendation), or whether the user has
+  opted out by deleting the scaffold.
 
 Pass `--dry-run` to compute and print the same report without writing anything, or `--json` for a
 machine-readable version of the same structure.
 
 ## When to use
 
-`/code-guidelines` is explicit-invocation only (see Design notes). Use the table below to decide
-when to type it — and, just as importantly, when not to.
+All three commands are explicit-invocation only (see Design notes). Use the table below to decide
+which to type when — and, just as importantly, when not to.
 
 | Situation | Action | Why |
 |---|---|---|
-| Routine day-to-day sync, or right after adding/removing a stack dependency | Type `/code-guidelines` (no arguments) | Re-detects the stack and reconciles rules/lint deterministically; safe to run as often as you like — a no-op run writes nothing |
-| Starting a brand-new (greenfield) project with no code yet | Type `/code-guidelines` now for universal + per-stack guardrails and lint from day one; run `/code-guidelines distill` later, once a few real files exist, to capture the conventions that emerge | An empty repo has nothing to distill — the guardrail library and lint baselines apply immediately; project-specific conventions can only firm up once there is code to evidence them |
-| Onboarding an existing codebase that already has real conventions worth capturing | Type `/code-guidelines distill` once | One-time, evidence-gated extraction of this repo's actual patterns into `project-conventions.md` |
-| After a large refactor changed real conventions on purpose | Manually re-run `/code-guidelines distill --force` (or delete `project-conventions.md` first) | Distillation never happens automatically; a stale `project-conventions.md` is reported as a fact, not auto-refreshed |
-| You want lint enforcement to start on a stack that has no config yet | Nothing extra — it happens automatically inside the plain `/code-guidelines` run | Lint first-arm is part of the no-argument pipeline, not a separate invocation |
-| You are mid-task and think "I could use some guidance for this file" | Do **not** invoke it from that thought alone | Explicit-invocation only (R2): the skill never triggers from intent, keywords, or as a side effect of a coding task |
-| You want it to run automatically on every commit or file save | Do **not** ask it to configure a hook | The skill never suggests or wires up hook-based automation |
+| Routine day-to-day rule sync, or right after adding/removing a stack dependency | Type `/code-guidelines` (rules + managed block only) | Re-detects the stack and reconciles rules deterministically; safe to run as often as you like — a no-op run writes nothing |
+| You want lint enforcement to start on a stack that has no config yet | Type `/code-guidelines-lint` | Arms the machine-enforced baseline once, per tool; a deliberate, separate command — never a side effect of the rule sync |
+| Starting a brand-new (greenfield) project with no code yet | Type `/code-guidelines` and `/code-guidelines-lint` now for guardrails + lint from day one; run `/code-guidelines-distill` later, once a few real files exist | An empty repo has nothing to distill — the guardrail library and lint baselines apply immediately; project-specific conventions can only firm up once there is code to evidence them |
+| Onboarding an existing codebase that already has real conventions worth capturing | Type `/code-guidelines-distill` once | One-time, evidence-gated extraction of this repo's actual patterns into `project-conventions.md` |
+| After a large refactor changed real conventions on purpose | Manually re-run `/code-guidelines-distill --force` (or delete `project-conventions.md` first) | Distillation never happens automatically; a stale `project-conventions.md` is reported as a fact, not auto-refreshed |
+| You are mid-task and think "I could use some guidance for this file" | Do **not** invoke any of them from that thought alone | Explicit-invocation only (R2): the commands never trigger from intent, keywords, or as a side effect of a coding task |
+| You want it to run automatically on every commit or file save | Do **not** ask it to configure a hook | The commands never suggest or wire up hook-based automation |
 | You mentioned "python" or "docker" in conversation | Do **not** expect that to trigger anything | Keyword/intent-based triggering is explicitly out of scope |
 
 ## What gets generated
 
-Running `/code-guidelines` (or `install`, at the machine level) produces the following artifacts.
-Anyone reviewing a diff or onboarding onto a project that uses this tool should recognize these:
+The three commands (or `install`, at the machine level) produce the following artifacts. Anyone
+reviewing a diff or onboarding onto a project that uses this tool should recognize these:
 
 - **`.code-guidelines/` (inside the target repository)** — the curated guardrail rule files
   currently selected for this repository's detected stack, plus `manifest.json`, which records
@@ -170,33 +186,34 @@ Anyone reviewing a diff or onboarding onto a project that uses this tool should 
   this entry file — it must already exist.
 - **Lint scaffold configuration files** (for example `eslint.config.mjs` + `.prettierrc` +
   `tsconfig.json` for JS/TS, `ruff.toml` + `mypy.ini` for Python, and similar per-language sets for
-  the other 9 supported toolchains) — written into the target repository only the first time a
-  matching stack is detected **and** the project has no existing configuration for that tool.
-  Dependencies are never installed automatically; the status report prints the exact command to
-  run. Once armed, an unmodified scaffold is upgraded across tool versions; a scaffold the user has
-  hand-edited is treated as their property and left alone permanently; deleting a scaffold is
-  treated as an intentional opt-out and is not revived without an explicit `--relint <tool>`.
+  the other 9 supported toolchains) — written by the separate `/code-guidelines-lint` command, only
+  the first time a matching stack is detected **and** the project has no existing configuration for
+  that tool. Dependencies are never installed automatically; the status report prints the exact
+  command to run. Once armed, an unmodified scaffold is upgraded across tool versions; a scaffold the
+  user has hand-edited is treated as their property and left alone permanently; deleting a scaffold
+  is treated as an intentional opt-out and is not revived without an explicit
+  `/code-guidelines-lint --relint <tool>`.
 
 ## Design notes: explicit invocation only, and the distill residual risk
 
 **Intentional deviation from typical skill authoring (R2).** Most agent skills are written with a
 short "when to use this" or "trigger" section in their own body so a model can decide, from intent
-or keywords, to invoke them. This skill's body deliberately has no such section, and its
-`description` is written as a negative guard instead of a positive trigger — for example, "run
-only when the user types `/code-guidelines`... never invoke from intent, keywords, or as a side
-effect of coding tasks." On Claude Code the skill additionally sets `disable-model-invocation:
+or keywords, to invoke them. Each of these three commands' bodies deliberately has no such section,
+and each `description` is written as a negative guard instead of a positive trigger — for example,
+"run only when the user types `/code-guidelines`... never invoke from intent, keywords, or as a side
+effect of coding tasks." On Claude Code each command additionally sets `disable-model-invocation:
 true` in its frontmatter, which hard-disables automatic loading at the platform level. This is a
 deliberate choice, not an oversight: a tool that rewrites files across a repository (even
 conservatively) should never fire as a side effect of an unrelated coding task, and it should never
-be wired up to run automatically via a hook — the skill will not suggest that either. If you expect
-to find a "when should the model call this" section in the skill's own body, you will not; that
-guidance lives in this README instead, read by humans, not used by the model to self-trigger.
+be wired up to run automatically via a hook — the commands will not suggest that either. If you
+expect to find a "when should the model call this" section in a command's own body, you will not;
+that guidance lives in this README instead, read by humans, not used by the model to self-trigger.
 
-**`distill` quality is agent-produced, not machine-verified.** The no-argument sync path
-(detection, selection, reconciliation, lint arming) is a deterministic, zero-dependency script with
-byte-for-byte reproducible output — it is exhaustively covered by automated tests. `distill` is
-different: it is an agent-driven procedure (defined in the skill body, not a script) that samples
-source files and writes prose. The tooling enforces structural guardrails around it — a fixed
+**`distill` quality is agent-produced, not machine-verified.** The deterministic commands
+(`/code-guidelines` and `/code-guidelines-lint` — detection, selection, reconciliation, lint arming)
+are a zero-dependency script with byte-for-byte reproducible output — exhaustively covered by
+automated tests. `/code-guidelines-distill` is different: it is an agent-driven procedure (defined
+in the command body, not a script) that samples source files and writes prose. The tooling enforces structural guardrails around it — a fixed
 template, an 80-line cap, and a requirement that every convention cite at least two real
 repository file paths as evidence, with unsupported or generically-best-practice entries dropped —
 but it cannot verify that the *semantic content* of a distilled convention is actually correct or

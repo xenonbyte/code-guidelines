@@ -1,28 +1,3 @@
-description = 'Explicit-invocation only: run only when the user types /code-guidelines. Never invoke from intent, keywords, or as a side effect of coding tasks.'
-prompt = '''
-This skill package keeps its rule library, lint baselines, and distillation tooling in one shared location on this machine, `~/.code-guidelines/`:
-
-- `library/` — the curated, per-stack rule files this skill installs into target repositories.
-- `lint/` — the first-run lint baseline configuration for each supported toolchain.
-- `distill/` — the `project-conventions.md` template and the veto checklist the `/code-guidelines-distill` command applies.
-- `stacks.json` — the stack-detection registry driving every step in Behavior below.
-- `sync.mjs` — the synchronization engine these commands run; see Behavior for its no-`node` manual equivalent.
-- `VERSION` — the installed package version.
-
-Every platform this package is installed on reads from this same shared location rather than keeping its own copy, so reinstalling or upgrading the package upgrades every platform at once.
-
-## Purpose
-
-`code-guidelines` installs and maintains a progressive-disclosure set of coding guardrails inside the current repository: a curated library of distilled, stack-specific rules delivered negative-constraints-first, plus a single managed pointer block inside the platform's entry file that tells the agent which rule to read before touching which files. Machine-enforced lint baselines and project-specific convention distillation are delivered by two separate companion commands — `/code-guidelines-lint` and `/code-guidelines-distill` — so this command does exactly one thing: keep the rule library and its pointer block in sync with the detected stack.
-
-All of this command's writes are confined to `.code-guidelines/` in the repository root and to a single delimited block inside whichever entry-point file (`CLAUDE.md`, `AGENTS.md`, or `GEMINI.md`) already exists there. Every write is idempotent: running it again with nothing changed writes nothing.
-
-## Triggers
-
-Explicit-invocation only: run only when the user types /code-guidelines. Never invoke from intent, keywords, or as a side effect of coding tasks.
-
-## Behavior
-
 This command never configures or recommends a hook, keyword binding, or any other automatic trigger for itself; every run starts because a user typed `/code-guidelines` by hand.
 
 ### 0. Platform precheck (always first, on every run)
@@ -58,7 +33,7 @@ This command does not arm lint baselines or distill conventions — those are th
 
 ### Manual fallback (no `node` available)
 
-The preferred path is running `node ~/.code-guidelines/sync.mjs --platform gemini`. When `node` is not available, carry out steps 1–5 above by hand, using ordinary file-reading and shell tools, with these substitutions — this is required to reach the exact same end state `sync.mjs` would, not an approximation of it:
+The preferred path is running `node ~/.code-guidelines/sync.mjs --platform {{PLATFORM}}`. When `node` is not available, carry out steps 1–5 above by hand, using ordinary file-reading and shell tools, with these substitutions — this is required to reach the exact same end state `sync.mjs` would, not an approximation of it:
 
 - Read `~/.code-guidelines/stacks.json` and `.code-guidelines/manifest.json` as plain JSON; evaluate each predicate by inspecting the files it names directly.
 - Compute a file's content hash with `shasum -a 256 <file>` (or `sha256sum <file>` where available) after normalizing its line endings to `\n`, and compare that digest against the manifest's recorded value character for character. This must be the exact algorithm `sync.mjs` uses — SHA-256 over LF-normalized content — never substitute a different digest, and never substitute a byte-for-byte `diff` in its place, since either can disagree with the manifest's recorded hashes.
@@ -76,27 +51,3 @@ The preferred path is running `node ~/.code-guidelines/sync.mjs --platform gemin
 - Produce the same report shape described in the Output section, whether run by `sync.mjs` or carried out by hand.
 
 Every rule above — the hash-based conflict check, the 12-file cap, the managed-block regeneration, the zero-write short-circuit, and carrying the `lint`/`conventions` manifest records through untouched — applies identically whether `node` ran it or an agent carried it out by hand; none of it is optional just because `node` is missing.
-
-## Output
-
-Every run ends with a status report, whether or not anything was written:
-
-- **This run's changes** — files added, removed, and upgraded; files skipped, each with the reason (most commonly: the file's on-disk content no longer matches the manifest, meaning the user edited it).
-- **`project-conventions.md` status** — whether it exists, and if so, the date it was last distilled. This is a fact, not a judgment: this command never claims conventions are stale.
-- When nothing needed to change: "already up to date, nothing changed," with zero files written.
-- A closing one-line pointer that the companion commands exist: `/code-guidelines-lint` arms machine-enforced lint baselines for the detected stack, `/code-guidelines-distill` mines this repository's own conventions. This command runs neither.
-
-`--dry-run` computes and prints this same report without writing anything. `--json` prints the machine-readable equivalent:
-
-    {
-      "upToDate": false,
-      "added": ["..."],
-      "removed": ["..."],
-      "upgraded": ["..."],
-      "skipped": [{ "file": "...", "reason": "..." }],
-      "conventions": { "present": true, "distilledAt": "..." },
-      "exitCode": 0
-    }
-
-Exit codes are shared across this package's commands: `0` success; `2` usage error; `3` the platform precheck aborted (entry-point file missing); `4` a conflict or safety abort (a user-modified file, a rejected symlink, or a malformed managed block).
-'''

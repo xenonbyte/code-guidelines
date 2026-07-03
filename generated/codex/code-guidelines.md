@@ -1,24 +1,23 @@
 ---
 description: "Explicit-invocation only: run only when the user types /code-guidelines. Never invoke from intent, keywords, or as a side effect of coding tasks."
-argument-hint: [distill]
 ---
 
 This skill package keeps its rule library, lint baselines, and distillation tooling in one shared location on this machine, `~/.code-guidelines/`:
 
 - `library/` — the curated, per-stack rule files this skill installs into target repositories.
 - `lint/` — the first-run lint baseline configuration for each supported toolchain.
-- `distill/` — the `project-conventions.md` template and the veto checklist the `distill` argument applies.
+- `distill/` — the `project-conventions.md` template and the veto checklist the `/code-guidelines-distill` command applies.
 - `stacks.json` — the stack-detection registry driving every step in Behavior below.
-- `sync.mjs` — the synchronization engine this skill runs; see Behavior for its no-`node` manual equivalent.
+- `sync.mjs` — the synchronization engine these commands run; see Behavior for its no-`node` manual equivalent.
 - `VERSION` — the installed package version.
 
-Every platform this skill is installed on reads from this same shared location rather than keeping its own copy, so reinstalling or upgrading the package upgrades every platform at once.
+Every platform this package is installed on reads from this same shared location rather than keeping its own copy, so reinstalling or upgrading the package upgrades every platform at once.
 
 ## Purpose
 
-`code-guidelines` installs and maintains a progressive-disclosure set of coding guardrails inside the current repository: a curated library of distilled, stack-specific rules, a first-run lint baseline for the detected toolchain, and — through the `distill` argument — project-specific conventions mined from this repository's own file layout and history. Guardrails are delivered negative-constraints-first and machine-enforcement-first: hard rules the library states in prose, machine-enforced lint configuration, and repository-specific conventions this skill distills on request.
+`code-guidelines` installs and maintains a progressive-disclosure set of coding guardrails inside the current repository: a curated library of distilled, stack-specific rules delivered negative-constraints-first, plus a single managed pointer block inside the platform's entry file that tells the agent which rule to read before touching which files. Machine-enforced lint baselines and project-specific convention distillation are delivered by two separate companion commands — `/code-guidelines-lint` and `/code-guidelines-distill` — so this command does exactly one thing: keep the rule library and its pointer block in sync with the detected stack.
 
-All of this skill's writes are confined to `.code-guidelines/` in the repository root and to a single delimited block inside whichever entry-point file (`CLAUDE.md`, `AGENTS.md`, or `GEMINI.md`) already exists there. Every write is idempotent: running this skill again with nothing changed writes nothing.
+All of this command's writes are confined to `.code-guidelines/` in the repository root and to a single delimited block inside whichever entry-point file (`CLAUDE.md`, `AGENTS.md`, or `GEMINI.md`) already exists there. Every write is idempotent: running it again with nothing changed writes nothing.
 
 ## Triggers
 
@@ -26,7 +25,7 @@ Explicit-invocation only: run only when the user types /code-guidelines. Never i
 
 ## Behavior
 
-This skill never configures or recommends a hook, keyword binding, or any other automatic trigger for itself; every run starts because a user typed the command by hand.
+This command never configures or recommends a hook, keyword binding, or any other automatic trigger for itself; every run starts because a user typed `/code-guidelines` by hand.
 
 ### 0. Platform precheck (always first, on every run)
 
@@ -43,28 +42,29 @@ If that file does not exist at the repository root, abort immediately with zero 
 
 `当前平台(<平台名>)无约束文件 <文件名>,请先创建该文件后重新执行 /code-guidelines`
 
-filling `<平台名>` with the current platform's name and `<文件名>` with its mapped entry-point file above. This skill never creates that file itself, on any platform, under any condition — the user must create it and re-run the command.
+filling `<平台名>` with the current platform's name and `<文件名>` with its mapped entry-point file above. This command never creates that file itself, on any platform, under any condition — the user must create it and re-run the command.
 
-### No-argument run: detect → select → reconcile → arm lint → report
+### Run: detect → select → reconcile → maintain block → report
 
-With no argument, run these steps in order against `~/.code-guidelines/` (the shared asset directory this package installed) and the target repository:
+Run these steps in order against `~/.code-guidelines/` (the shared asset directory this package installed) and the target repository:
 
 1. **Detect** — read `~/.code-guidelines/stacks.json`. For every entry, evaluate its predicates against the whole repository (a monorepo is scanned in full from the root, excluding `node_modules/`, `vendor/`, `dist/`, `build/`, and `.git/`); rules are only ever installed at the repository root, never per-package. Predicates come in four kinds: a listed file exists (e.g. `go.mod`, `Cargo.toml`, `pyproject.toml`); a `package.json` dependency name matches exactly; a source-file extension count meets the entry's declared threshold; or a tag the entry requires was produced by another entry's detection, evaluated in a second pass after all non-tag-dependent entries are resolved (e.g. any detected frontend framework satisfies the accessibility entry's tag requirement).
 2. **Select** — `guardrails-core` is always selected and always kept, first, regardless of detection. Every other detected entry is ordered by: framework tier (frontend, mobile, backend) before language tier before domain tier (data, testing, DevOps, cross-cutting); within a tier, higher declared specificity first; ties broken by the entry's position in `stacks.json`, earlier first. Keep the top 12 rule files by this order (core counts toward the 12); anything beyond the cutoff is dropped and named in the report — never dropped silently.
-3. **Reconcile** — compare the selected set against `.code-guidelines/manifest.json`'s recorded rule files. Add anything missing. Remove anything installed but no longer selected, but only when its on-disk content hash still matches the manifest (unmodified by the user). Upgrade anything whose on-disk content hash still matches the manifest but whose library copy has changed. Anything whose on-disk content hash no longer matches the manifest is treated as a user edit: leave it untouched and list it as skipped — never overwrite it silently. `project-conventions.md` is never part of this expected set; it is only ever written by the `distill` argument below, and a no-argument run only reports its presence and distillation date.
+3. **Reconcile** — compare the selected set against `.code-guidelines/manifest.json`'s recorded rule files. Add anything missing. Remove anything installed but no longer selected, but only when its on-disk content hash still matches the manifest (unmodified by the user). Upgrade anything whose on-disk content hash still matches the manifest but whose library copy has changed. Anything whose on-disk content hash no longer matches the manifest is treated as a user edit: leave it untouched and list it as skipped — never overwrite it silently. `project-conventions.md` is never part of this expected set; it is only ever written by the separate `/code-guidelines-distill` command, and this command only reports its presence and distillation date. The manifest's `lint` and `conventions` records belong to the `/code-guidelines-lint` and `/code-guidelines-distill` commands; carry them through unchanged — never clear or rewrite them here.
    - Content hashes are SHA-256 over the file's content with all line endings normalized to `\n` first, so a CRLF checkout is never mistaken for a user edit.
-   - If the reconciled set is already identical to what is on disk (same files, same hashes), write nothing at all — not even a modified timestamp — and report "already up to date, nothing changed."
-4. **Arm lint** — for every detected stack that has an associated lint baseline, write that baseline's scaffold configuration only when all three hold: the stack was detected; the project has no existing configuration for that tool (check both current and legacy file names for that tool, plus relevant `package.json` fields); and `.code-guidelines/manifest.json` has no prior arming record for that tool. This is at most once per tool, ever. Never install the tool's dependencies — only print the exact install command in the report. If the user deletes an armed scaffold file, treat that as a deliberate opt-out: never recreate it, and flag it in the report; only after the user confirms in the same session should this skill clear that opt-out and re-arm — by running `sync.mjs --relint <tool>`, or the equivalent manual step below — and this remains inside the current explicit invocation, not a new one. An unmodified scaffold (hash still matches the manifest) upgrades silently with the baseline version; a modified one is the user's property and is skipped forever. A tool that already has its own configuration is never touched — only its recommended rule set and a sample snippet are offered, read-only, in the report.
-5. **Maintain the managed block** — on each entry-point file that exists at the repository root (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md` — as many as exist, never fewer, never more created), find the `<!-- code-guidelines:begin -->` / `<!-- code-guidelines:end -->` markers. If a file has no markers, append a new managed block at the end of that existing file. If markers are malformed — a begin with no matching end, more than one pair, or markers nested inside another pair — abort with zero writes and report the malformed file; never guess at a repair. Otherwise regenerate the whole block's content from scratch: at most 25 lines total, up to 3 lines of framing text followed by one line per installed rule naming the trigger condition under which to read it (e.g. "Before editing `*.tsx`, read `.code-guidelines/react.md`"); the `project-conventions.md` pointer, when that file exists, always comes first. Leave everything outside the markers exactly as it was, byte for byte. Write the file only if the block's content actually changed.
-6. **Report** — see the Output section below.
+   - If the reconciled set is already identical to what is on disk (same files, same hashes) and the manifest would not change, write nothing at all — not even a modified timestamp — and report "already up to date, nothing changed."
+4. **Maintain the managed block** — on each entry-point file that exists at the repository root (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md` — as many as exist, never fewer, never more created), find the `<!-- code-guidelines:begin -->` / `<!-- code-guidelines:end -->` markers. If a file has no markers, append a new managed block at the end of that existing file. If markers are malformed — a begin with no matching end, more than one pair, or markers nested inside another pair — abort with zero writes and report the malformed file; never guess at a repair. Otherwise regenerate the whole block's content from scratch: at most 25 lines total, up to 3 lines of framing text followed by one line per installed rule naming the trigger condition under which to read it (e.g. "Before editing `*.tsx`, read `.code-guidelines/react.md`"); the `project-conventions.md` pointer, when that file exists, always comes first. Leave everything outside the markers exactly as it was, byte for byte. Write the file only if the block's content actually changed.
+5. **Report** — see the Output section below.
+
+This command does not arm lint baselines or distill conventions — those are the separate `/code-guidelines-lint` and `/code-guidelines-distill` commands.
 
 ### Manual fallback (no `node` available)
 
-The preferred path is running `node ~/.code-guidelines/sync.mjs --platform codex`. When `node` is not available, carry out steps 1–6 above by hand, using ordinary file-reading and shell tools, with these substitutions — this is required to reach the exact same end state `sync.mjs` would, not an approximation of it:
+The preferred path is running `node ~/.code-guidelines/sync.mjs --platform codex`. When `node` is not available, carry out steps 1–5 above by hand, using ordinary file-reading and shell tools, with these substitutions — this is required to reach the exact same end state `sync.mjs` would, not an approximation of it:
 
 - Read `~/.code-guidelines/stacks.json` and `.code-guidelines/manifest.json` as plain JSON; evaluate each predicate by inspecting the files it names directly.
 - Compute a file's content hash with `shasum -a 256 <file>` (or `sha256sum <file>` where available) after normalizing its line endings to `\n`, and compare that digest against the manifest's recorded value character for character. This must be the exact algorithm `sync.mjs` uses — SHA-256 over LF-normalized content — never substitute a different digest, and never substitute a byte-for-byte `diff` in its place, since either can disagree with the manifest's recorded hashes.
-- Write `.code-guidelines/manifest.json` with the same shape `sync.mjs` would:
+- Write `.code-guidelines/manifest.json` with the same shape `sync.mjs` would, updating only the `rules` array and carrying the `lint` and `conventions` entries through exactly as they were:
 
       {
         "version": "...",
@@ -73,38 +73,20 @@ The preferred path is running `node ~/.code-guidelines/sync.mjs --platform codex
         "conventions": { "sha256": "...", "distilledAt": "..." }
       }
 
-  (`conventions` stays `null` until a `distill` run has produced `project-conventions.md`.)
+  (`lint` stays whatever `/code-guidelines-lint` last recorded, `[]` if it never ran; `conventions` stays `null` until a `/code-guidelines-distill` run has produced `project-conventions.md`.)
 - Before any write, confirm the target path and every parent directory is not a symlink, and that the resolved path stays inside `.code-guidelines/` or the repository root; write through a temporary file followed by a rename rather than in place.
 - Produce the same report shape described in the Output section, whether run by `sync.mjs` or carried out by hand.
 
-Every rule above — the three-condition lint gate, the hash-based conflict check, the 12-file cap, the managed-block regeneration, the zero-write short-circuit — applies identically whether `node` ran it or an agent carried it out by hand; none of it is optional just because `node` is missing.
-
-### `distill` argument
-
-Perform the platform precheck above first, exactly as for a no-argument run; abort the same way if the entry-point file is missing.
-
-Distilling project-specific conventions is an agent-driven procedure, not a script — carry it out directly:
-
-1. **Sample** — for each stack detected in step 1 above, sample at least 10 of its source files, preferring files that were modified recently and files referenced from many other places in the repository; if a stack has fewer than 10 source files in total, use all of them.
-2. **Extract** — read the sampled files looking for this repository's actual, real conventions: naming patterns, directory organization, error-handling idioms, technology choices, and testing patterns. Anything that is really just general best practice — the kind of thing the rule library already covers — is not a project-specific convention; leave it out.
-3. **Evidence-gate** — keep only conventions backed by at least two real, repository-relative file paths as evidence. Drop everything else, including anything that merely sounds plausible: no evidence, no entry.
-4. **Veto** — check every surviving entry against `~/.code-guidelines/distill/veto-checklist.md` before it is allowed into the output; anything that fails a checklist item is dropped, not fixed up.
-5. **Write** — render the survivors into `.code-guidelines/project-conventions.md` using the fixed skeleton at `~/.code-guidelines/distill/conventions-template.md`: guardrails phrasing (negative constraints, not general advice), at most 80 lines total. (`~/.code-guidelines/distill/template.md` holds the sampling/extraction/evidence procedure; `~/.code-guidelines/distill/veto-checklist.md` holds the gates checked in step 4.)
-6. **Record** — write the new file's content hash and today's date into `.code-guidelines/manifest.json`'s `conventions` entry.
-7. **Protect existing conventions** — if `project-conventions.md` already exists, first hash it and compare against the manifest's recorded hash. A mismatch means the user edited it by hand: refuse to overwrite, and instead print a report comparing the existing content against what a fresh distillation would produce, so the user can decide. Only proceed past this guard when the user explicitly re-invokes with `distill --force`, or after they delete the file themselves and re-invoke `distill` — both remain inside this explicit invocation, not a new automatic one.
-
-A `distill` run's output never folds into the no-argument run's expected set described above; the no-argument run only ever reports whether `project-conventions.md` is present and when it was last distilled — it neither judges that date nor triggers distillation itself.
-
-When this skill is invoked with the `distill` argument, it is delivered here as `$ARGUMENTS`.
+Every rule above — the hash-based conflict check, the 12-file cap, the managed-block regeneration, the zero-write short-circuit, and carrying the `lint`/`conventions` manifest records through untouched — applies identically whether `node` ran it or an agent carried it out by hand; none of it is optional just because `node` is missing.
 
 ## Output
 
-Every no-argument run ends with a status report, whether or not anything was written:
+Every run ends with a status report, whether or not anything was written:
 
 - **This run's changes** — files added, removed, and upgraded; files skipped, each with the reason (most commonly: the file's on-disk content no longer matches the manifest, meaning the user edited it).
-- **Lint arming** — for every stack with a lint baseline: armed / has a gap (with the exact command to install the missing tool) / opted out (the user removed a previously armed scaffold and it has not been re-confirmed).
-- **`project-conventions.md` status** — whether it exists, and if so, the date it was last distilled. This is a fact, not a judgment: this skill never claims conventions are stale.
+- **`project-conventions.md` status** — whether it exists, and if so, the date it was last distilled. This is a fact, not a judgment: this command never claims conventions are stale.
 - When nothing needed to change: "already up to date, nothing changed," with zero files written.
+- A closing one-line pointer that the companion commands exist: `/code-guidelines-lint` arms machine-enforced lint baselines for the detected stack, `/code-guidelines-distill` mines this repository's own conventions. This command runs neither.
 
 `--dry-run` computes and prints this same report without writing anything. `--json` prints the machine-readable equivalent:
 
@@ -114,11 +96,8 @@ Every no-argument run ends with a status report, whether or not anything was wri
       "removed": ["..."],
       "upgraded": ["..."],
       "skipped": [{ "file": "...", "reason": "..." }],
-      "lint": [{ "tool": "...", "armed": true, "gap": false, "installCmd": "...", "optedOut": false }],
       "conventions": { "present": true, "distilledAt": "..." },
       "exitCode": 0
     }
 
-Exit codes are shared with the rest of this tool: `0` success; `2` usage error; `3` the platform precheck aborted (entry-point file missing); `4` a conflict or safety abort (a user-modified file, a rejected symlink, or a malformed managed block).
-
-A `distill` run's own output is the new or refreshed `.code-guidelines/project-conventions.md` file plus, on a protected overwrite, a comparison report of the existing content against a fresh distillation — never a silent overwrite.
+Exit codes are shared across this package's commands: `0` success; `2` usage error; `3` the platform precheck aborted (entry-point file missing); `4` a conflict or safety abort (a user-modified file, a rejected symlink, or a malformed managed block).

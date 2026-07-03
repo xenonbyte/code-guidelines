@@ -23,7 +23,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { armLint, sync } from '../assets/sync.mjs';
+import { armLint, syncLint } from '../assets/sync.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
@@ -373,7 +373,7 @@ test('armLint: user-modified scaffold on disk → permanently skipped, never rew
 // byte-for-byte unchanged AFTER A REAL RUN (not just a computed plan).
 // ---------------------------------------------------------------------------------------------
 
-test('sync: full pipeline run leaves an existing eslint.config.js fixture byte-for-byte unchanged, reports read-only recommendation only', async () => {
+test('lint: full command run leaves an existing eslint.config.js fixture byte-for-byte unchanged, reports read-only recommendation only', async () => {
   // Self-contained asset root: real stacks.json (detection registry, already built in TASK-009)
   // + VERSION, but the js-ts lint baseline is the INJECTED fixture — never assets/lint/.
   const assetRoot = tmpDir('cg-lint-assetroot-');
@@ -392,20 +392,25 @@ test('sync: full pipeline run leaves an existing eslint.config.js fixture byte-f
   copyFileSync(join(FIXTURES, 'lint-existing', 'eslint.config.js'), join(repo, 'eslint.config.js'));
   const before = readFileSync(join(repo, 'eslint.config.js'), 'utf8');
 
-  const r = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
+  const r = await syncLint({ repoRoot: repo, assetRoot, now: 'T0' });
   assert.equal(r.exitCode, 0);
 
   const after = readFileSync(join(repo, 'eslint.config.js'), 'utf8');
-  assert.equal(after, before, 'existing eslint.config.js is byte-for-byte unchanged after a real sync run');
+  assert.equal(after, before, 'existing eslint.config.js is byte-for-byte unchanged after a real lint run');
 
   const jsTsRow = r.status.lint.find((row) => row.tool === 'js-ts');
   assert.ok(jsTsRow, 'js-ts baseline appears in the report');
   assert.equal(jsTsRow.armed, false, 'js-ts never armed when a config already exists');
   assert.equal(jsTsRow.gap, false);
 
-  const manifest = JSON.parse(readFileSync(join(repo, '.code-guidelines', 'manifest.json'), 'utf8'));
-  assert.ok(
-    !manifest.lint.some((l) => l.tool === 'js-ts'),
-    'no manifest lint record written for an already-configured tool',
-  );
+  // Nothing was armed and there was no prior manifest, so the lint command writes nothing at all
+  // (no surprise empty manifest). If a manifest does exist, it must carry no js-ts lint record.
+  const manifestPath = join(repo, '.code-guidelines', 'manifest.json');
+  if (existsSync(manifestPath)) {
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    assert.ok(
+      !manifest.lint.some((l) => l.tool === 'js-ts'),
+      'no manifest lint record written for an already-configured tool',
+    );
+  }
 });
