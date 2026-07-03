@@ -2,3 +2,10 @@ node_modules/
 !AGENTS.md
 !CLAUDE.md
 .claude
+
+# Dogfood output from running /code-guidelines against this repo itself.
+# Root-anchored so the identically-named lint baselines under assets/lint/ stay tracked.
+/.code-guidelines/
+/.golangci.yml
+/.php-cs-fixer.dist.php
+/phpstan.neon
