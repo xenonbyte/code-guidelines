@@ -61,7 +61,7 @@ With no argument, run these steps in order against `~/.code-guidelines/` (the sh
 
 ### Manual fallback (no `node` available)
 
-The preferred path is running `node ~/.code-guidelines/sync.mjs --platform <platform>`. When `node` is not available, carry out steps 1–6 above by hand, using ordinary file-reading and shell tools, with these substitutions — this is required to reach the exact same end state `sync.mjs` would, not an approximation of it:
+The preferred path is running `node ~/.code-guidelines/sync.mjs --platform claude`. When `node` is not available, carry out steps 1–6 above by hand, using ordinary file-reading and shell tools, with these substitutions — this is required to reach the exact same end state `sync.mjs` would, not an approximation of it:
 
 - Read `~/.code-guidelines/stacks.json` and `.code-guidelines/manifest.json` as plain JSON; evaluate each predicate by inspecting the files it names directly.
 - Compute a file's content hash with `shasum -a 256 <file>` (or `sha256sum <file>` where available) after normalizing its line endings to `\n`, and compare that digest against the manifest's recorded value character for character. This must be the exact algorithm `sync.mjs` uses — SHA-256 over LF-normalized content — never substitute a different digest, and never substitute a byte-for-byte `diff` in its place, since either can disagree with the manifest's recorded hashes.

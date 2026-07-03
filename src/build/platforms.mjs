@@ -98,7 +98,7 @@ function renderTemplate(template, vars) {
 }
 
 function substituteLine(line, vars) {
-  return line.replace(/\{\{([\w-]+)\}\}/g, (whole, key) => {
+  return line.replace(/\{\{([\w-]+)\}\}/g, (_match, key) => {
     if (!(key in vars)) {
       throw new Error(`platforms.mjs: no value provided for template placeholder "${key}"`);
     }
@@ -114,13 +114,29 @@ function guardText(fragments) {
   return fragments.own['triggers.md'].trim();
 }
 
-function sharedVars(fragments, argumentPlaceholder) {
+/**
+ * Burn `platform`'s own literal name into fragment prose wherever a fragment author wrote the
+ * `{{PLATFORM}}` token (SPEC-PLATFORM-001 "烙入 `--platform` 标识", SPEC-SYNC-001 "`--platform
+ * <name>`(来自烙入产物)"). This is a plain literal-token substitution over the fragment's raw text
+ * — deliberately NOT routed through substituteLine/renderTemplate's `{{KEY}}` machinery, since
+ * that machinery only ever scans template lines once and would leave a token embedded inside an
+ * already-substituted fragment value (e.g. BEHAVIOR) untouched (its single `.replace()` pass never
+ * rescans replacement text for further matches). Doing the substitution here, before the fragment
+ * text is placed into `vars`, guarantees every platform's rendered artifact carries its OWN
+ * literal `--platform <name>` — never a shared generic placeholder — with no runtime env sniffing
+ * (DES-PLAT-001).
+ */
+function burnInPlatform(text, platform) {
+  return text.replaceAll('{{PLATFORM}}', platform);
+}
+
+function sharedVars(fragments, argumentPlaceholder, platform) {
   return {
-    SHARED_BODY: fragments.shared['body.md'].trim(),
-    PURPOSE: fragments.own['purpose.md'].trim(),
-    TRIGGERS: fragments.own['triggers.md'].trim(),
-    BEHAVIOR: fragments.own['behavior.md'].trim(),
-    OUTPUT: fragments.own['output.md'].trim(),
+    SHARED_BODY: burnInPlatform(fragments.shared['body.md'].trim(), platform),
+    PURPOSE: burnInPlatform(fragments.own['purpose.md'].trim(), platform),
+    TRIGGERS: burnInPlatform(fragments.own['triggers.md'].trim(), platform),
+    BEHAVIOR: burnInPlatform(fragments.own['behavior.md'].trim(), platform),
+    OUTPUT: burnInPlatform(fragments.own['output.md'].trim(), platform),
     ARGUMENT_PLACEHOLDER: argumentPlaceholder,
   };
 }
@@ -137,13 +153,13 @@ function sharedVars(fragments, argumentPlaceholder) {
  * no such ambiguity while leaving the guard text fully intact as a substring, so the negative-
  * guard structural check still matches against it.
  */
-function renderSkillFormat({ params, fragments }) {
+function renderSkillFormat({ params, fragments, platform }) {
   const vars = {
     name: params.frontmatter?.name,
     'disable-model-invocation': params.frontmatter?.['disable-model-invocation'],
     'argument-hint': params.frontmatter?.['argument-hint'],
     DESCRIPTION: JSON.stringify(guardText(fragments)),
-    ...sharedVars(fragments, params.argumentPlaceholder),
+    ...sharedVars(fragments, params.argumentPlaceholder, platform),
   };
   return renderTemplate(SKILL_TEMPLATE, vars);
 }
@@ -153,10 +169,10 @@ function renderSkillFormat({ params, fragments }) {
  * DESCRIPTION convention as renderSkillFormat (see rationale there); no structural frontmatter
  * keys are emitted today (registry.mjs's opencode `frontmatter` is `{}`).
  */
-function renderCommandFormat({ params, fragments }) {
+function renderCommandFormat({ params, fragments, platform }) {
   const vars = {
     DESCRIPTION: JSON.stringify(guardText(fragments)),
-    ...sharedVars(fragments, params.argumentPlaceholder),
+    ...sharedVars(fragments, params.argumentPlaceholder, platform),
   };
   return renderTemplate(COMMAND_TEMPLATE, vars);
 }
@@ -168,17 +184,20 @@ function renderCommandFormat({ params, fragments }) {
  * literal string needs no escaping for this text (it contains neither a `'''` run nor a trailing
  * apostrophe that would need padding).
  */
-function renderGeminiFormat({ params, fragments }) {
+function renderGeminiFormat({ params, fragments, platform }) {
   const vars = {
     DESCRIPTION: guardText(fragments),
-    ...sharedVars(fragments, params.argumentPlaceholder),
+    ...sharedVars(fragments, params.argumentPlaceholder, platform),
   };
   return renderTemplate(GEMINI_TEMPLATE, vars);
 }
 
-// Platform identity is burned in structurally: each emitter renders through that platform's own
-// template plus registry.mjs's frontmatter/placeholder facts for that platform (DES-PLAT-001) —
-// never by inspecting the runtime environment (SCOPE-IN-002 / Non-Goals).
+// Platform identity is burned in both structurally AND textually: each emitter renders through
+// that platform's own template plus registry.mjs's frontmatter/placeholder facts for that
+// platform (DES-PLAT-001), and burnInPlatform() literally writes the platform's own name into
+// fragment prose wherever a `{{PLATFORM}}` token appears (e.g. the sync.mjs manual-fallback
+// invocation instruction, SPEC-SYNC-001) — never by inspecting the runtime environment
+// (SCOPE-IN-002 / Non-Goals).
 export const EMITTERS = {
   claude: renderSkillFormat,
   codex: renderSkillFormat,
@@ -198,5 +217,5 @@ export function emitPlatform({ skill, platform, params, fragments }) {
   if (!emitter) {
     throw new Error(`platforms.mjs: no emitter registered for platform "${platform}"`);
   }
-  return emitter({ skill, params, fragments });
+  return emitter({ skill, params, fragments, platform });
 }
