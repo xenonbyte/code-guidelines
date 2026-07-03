@@ -1,0 +1,817 @@
+{
+  "version": "1.0.0",
+  "stacks": [
+    {
+      "id": "guardrails-core",
+      "category": "核心",
+      "specificity": 0,
+      "detect": null,
+      "rules": [
+        "guardrails-core"
+      ],
+      "lint": null
+    },
+    {
+      "id": "typescript",
+      "category": "语言",
+      "specificity": 60,
+      "detect": {
+        "files": [
+          "tsconfig.json"
+        ],
+        "extensions": [
+          {
+            "ext": "ts",
+            "minCount": 1
+          }
+        ]
+      },
+      "rules": [
+        "typescript"
+      ],
+      "lint": "js-ts"
+    },
+    {
+      "id": "javascript",
+      "category": "语言",
+      "specificity": 40,
+      "detect": {
+        "extensions": [
+          {
+            "ext": "js",
+            "minCount": 3
+          }
+        ]
+      },
+      "rules": [
+        "javascript"
+      ],
+      "lint": "js-ts"
+    },
+    {
+      "id": "python",
+      "category": "语言",
+      "specificity": 50,
+      "detect": {
+        "files": [
+          "pyproject.toml"
+        ],
+        "extensions": [
+          {
+            "ext": "py",
+            "minCount": 1
+          }
+        ]
+      },
+      "rules": [
+        "python"
+      ],
+      "lint": "python"
+    },
+    {
+      "id": "go",
+      "category": "语言",
+      "specificity": 50,
+      "detect": {
+        "files": [
+          "go.mod"
+        ],
+        "extensions": [
+          {
+            "ext": "go",
+            "minCount": 1
+          }
+        ]
+      },
+      "rules": [
+        "go"
+      ],
+      "lint": "go"
+    },
+    {
+      "id": "rust",
+      "category": "语言",
+      "specificity": 50,
+      "detect": {
+        "files": [
+          "Cargo.toml"
+        ],
+        "extensions": [
+          {
+            "ext": "rs",
+            "minCount": 1
+          }
+        ]
+      },
+      "rules": [
+        "rust"
+      ],
+      "lint": "rust"
+    },
+    {
+      "id": "java",
+      "category": "语言",
+      "specificity": 50,
+      "detect": {
+        "files": [
+          "pom.xml",
+          "build.gradle"
+        ],
+        "extensions": [
+          {
+            "ext": "java",
+            "minCount": 1
+          }
+        ]
+      },
+      "rules": [
+        "java"
+      ],
+      "lint": "java"
+    },
+    {
+      "id": "kotlin",
+      "category": "语言",
+      "specificity": 50,
+      "detect": {
+        "files": [
+          "build.gradle.kts"
+        ],
+        "extensions": [
+          {
+            "ext": "kt",
+            "minCount": 1
+          }
+        ]
+      },
+      "rules": [
+        "kotlin"
+      ],
+      "lint": "kotlin"
+    },
+    {
+      "id": "swift",
+      "category": "语言",
+      "specificity": 50,
+      "detect": {
+        "files": [
+          "Package.swift"
+        ],
+        "extensions": [
+          {
+            "ext": "swift",
+            "minCount": 1
+          }
+        ]
+      },
+      "rules": [
+        "swift"
+      ],
+      "lint": "swift"
+    },
+    {
+      "id": "csharp",
+      "category": "语言",
+      "specificity": 50,
+      "detect": {
+        "extensions": [
+          {
+            "ext": "cs",
+            "minCount": 1
+          }
+        ]
+      },
+      "rules": [
+        "csharp"
+      ],
+      "lint": "csharp"
+    },
+    {
+      "id": "cpp",
+      "category": "语言",
+      "specificity": 50,
+      "detect": {
+        "extensions": [
+          {
+            "ext": "cpp",
+            "minCount": 1
+          }
+        ]
+      },
+      "rules": [
+        "cpp"
+      ],
+      "lint": "cpp"
+    },
+    {
+      "id": "php",
+      "category": "语言",
+      "specificity": 50,
+      "detect": {
+        "files": [
+          "composer.json"
+        ],
+        "extensions": [
+          {
+            "ext": "php",
+            "minCount": 1
+          }
+        ]
+      },
+      "rules": [
+        "php"
+      ],
+      "lint": "php"
+    },
+    {
+      "id": "ruby",
+      "category": "语言",
+      "specificity": 50,
+      "detect": {
+        "files": [
+          "Gemfile"
+        ],
+        "extensions": [
+          {
+            "ext": "rb",
+            "minCount": 1
+          }
+        ]
+      },
+      "rules": [
+        "ruby"
+      ],
+      "lint": "ruby"
+    },
+    {
+      "id": "react",
+      "category": "前端",
+      "specificity": 50,
+      "detect": {
+        "packageDeps": [
+          "react"
+        ],
+        "tags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "react"
+      ],
+      "lint": null
+    },
+    {
+      "id": "nextjs",
+      "category": "前端",
+      "specificity": 70,
+      "detect": {
+        "packageDeps": [
+          "next"
+        ],
+        "tags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "nextjs"
+      ],
+      "lint": null
+    },
+    {
+      "id": "vue",
+      "category": "前端",
+      "specificity": 50,
+      "detect": {
+        "packageDeps": [
+          "vue"
+        ],
+        "tags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "vue"
+      ],
+      "lint": null
+    },
+    {
+      "id": "nuxt",
+      "category": "前端",
+      "specificity": 70,
+      "detect": {
+        "packageDeps": [
+          "nuxt"
+        ],
+        "tags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "nuxt"
+      ],
+      "lint": null
+    },
+    {
+      "id": "angular",
+      "category": "前端",
+      "specificity": 60,
+      "detect": {
+        "packageDeps": [
+          "@angular/core"
+        ],
+        "tags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "angular"
+      ],
+      "lint": null
+    },
+    {
+      "id": "svelte",
+      "category": "前端",
+      "specificity": 55,
+      "detect": {
+        "packageDeps": [
+          "svelte"
+        ],
+        "tags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "svelte"
+      ],
+      "lint": null
+    },
+    {
+      "id": "astro",
+      "category": "前端",
+      "specificity": 60,
+      "detect": {
+        "packageDeps": [
+          "astro"
+        ],
+        "tags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "astro"
+      ],
+      "lint": null
+    },
+    {
+      "id": "tailwind",
+      "category": "前端",
+      "specificity": 30,
+      "detect": {
+        "packageDeps": [
+          "tailwindcss"
+        ],
+        "tags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "tailwind"
+      ],
+      "lint": null
+    },
+    {
+      "id": "html-css",
+      "category": "前端",
+      "specificity": 10,
+      "detect": {
+        "extensions": [
+          {
+            "ext": "html",
+            "minCount": 1
+          }
+        ],
+        "tags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "html-css"
+      ],
+      "lint": null
+    },
+    {
+      "id": "react-native",
+      "category": "移动",
+      "specificity": 60,
+      "detect": {
+        "packageDeps": [
+          "react-native"
+        ]
+      },
+      "rules": [
+        "react-native"
+      ],
+      "lint": null
+    },
+    {
+      "id": "flutter",
+      "category": "移动",
+      "specificity": 60,
+      "detect": {
+        "files": [
+          "pubspec.yaml"
+        ]
+      },
+      "rules": [
+        "flutter"
+      ],
+      "lint": null
+    },
+    {
+      "id": "android-compose",
+      "category": "移动",
+      "specificity": 60,
+      "detect": {
+        "files": [
+          "AndroidManifest.xml"
+        ]
+      },
+      "rules": [
+        "android-compose"
+      ],
+      "lint": null
+    },
+    {
+      "id": "ios-swiftui",
+      "category": "移动",
+      "specificity": 60,
+      "detect": {
+        "files": [
+          "Info.plist"
+        ]
+      },
+      "rules": [
+        "ios-swiftui"
+      ],
+      "lint": null
+    },
+    {
+      "id": "node-api",
+      "category": "后端",
+      "specificity": 50,
+      "detect": {
+        "packageDeps": [
+          "express",
+          "@nestjs/core",
+          "fastify"
+        ],
+        "tags": [
+          "backend"
+        ]
+      },
+      "rules": [
+        "node-api"
+      ],
+      "lint": null
+    },
+    {
+      "id": "django",
+      "category": "后端",
+      "specificity": 65,
+      "detect": {
+        "files": [
+          "manage.py"
+        ],
+        "tags": [
+          "backend"
+        ]
+      },
+      "rules": [
+        "django"
+      ],
+      "lint": null
+    },
+    {
+      "id": "fastapi",
+      "category": "后端",
+      "specificity": 65,
+      "detect": {
+        "files": [
+          "main.py"
+        ],
+        "tags": [
+          "backend"
+        ]
+      },
+      "rules": [
+        "fastapi"
+      ],
+      "lint": null
+    },
+    {
+      "id": "flask",
+      "category": "后端",
+      "specificity": 55,
+      "detect": {
+        "files": [
+          "app.py"
+        ],
+        "tags": [
+          "backend"
+        ]
+      },
+      "rules": [
+        "flask"
+      ],
+      "lint": null
+    },
+    {
+      "id": "spring-boot",
+      "category": "后端",
+      "specificity": 65,
+      "detect": {
+        "files": [
+          "src/main/resources/application.properties",
+          "src/main/resources/application.yml"
+        ],
+        "tags": [
+          "backend"
+        ]
+      },
+      "rules": [
+        "spring-boot"
+      ],
+      "lint": null
+    },
+    {
+      "id": "laravel",
+      "category": "后端",
+      "specificity": 65,
+      "detect": {
+        "files": [
+          "artisan"
+        ],
+        "tags": [
+          "backend"
+        ]
+      },
+      "rules": [
+        "laravel"
+      ],
+      "lint": null
+    },
+    {
+      "id": "rails",
+      "category": "后端",
+      "specificity": 65,
+      "detect": {
+        "files": [
+          "bin/rails",
+          "config/routes.rb"
+        ],
+        "tags": [
+          "backend"
+        ]
+      },
+      "rules": [
+        "rails"
+      ],
+      "lint": null
+    },
+    {
+      "id": "aspnet-core",
+      "category": "后端",
+      "specificity": 60,
+      "detect": {
+        "files": [
+          "Program.cs"
+        ],
+        "tags": [
+          "backend"
+        ]
+      },
+      "rules": [
+        "aspnet-core"
+      ],
+      "lint": null
+    },
+    {
+      "id": "graphql",
+      "category": "后端",
+      "specificity": 45,
+      "detect": {
+        "packageDeps": [
+          "graphql"
+        ],
+        "tags": [
+          "backend"
+        ]
+      },
+      "rules": [
+        "graphql"
+      ],
+      "lint": null
+    },
+    {
+      "id": "sql",
+      "category": "数据",
+      "specificity": 40,
+      "detect": {
+        "extensions": [
+          {
+            "ext": "sql",
+            "minCount": 1
+          }
+        ]
+      },
+      "rules": [
+        "sql"
+      ],
+      "lint": null
+    },
+    {
+      "id": "mongodb",
+      "category": "数据",
+      "specificity": 50,
+      "detect": {
+        "packageDeps": [
+          "mongodb",
+          "mongoose"
+        ]
+      },
+      "rules": [
+        "mongodb"
+      ],
+      "lint": null
+    },
+    {
+      "id": "python-ml",
+      "category": "数据",
+      "specificity": 55,
+      "detect": {
+        "extensions": [
+          {
+            "ext": "ipynb",
+            "minCount": 1
+          }
+        ],
+        "requiresTags": [
+          "python"
+        ]
+      },
+      "rules": [
+        "python-ml"
+      ],
+      "lint": null
+    },
+    {
+      "id": "js-unit-test",
+      "category": "测试",
+      "specificity": 45,
+      "detect": {
+        "packageDeps": [
+          "jest",
+          "vitest"
+        ]
+      },
+      "rules": [
+        "js-unit-test"
+      ],
+      "lint": null
+    },
+    {
+      "id": "e2e-test",
+      "category": "测试",
+      "specificity": 50,
+      "detect": {
+        "packageDeps": [
+          "cypress",
+          "playwright",
+          "@playwright/test"
+        ]
+      },
+      "rules": [
+        "e2e-test"
+      ],
+      "lint": null
+    },
+    {
+      "id": "pytest",
+      "category": "测试",
+      "specificity": 45,
+      "detect": {
+        "files": [
+          "pytest.ini",
+          "conftest.py"
+        ]
+      },
+      "rules": [
+        "pytest"
+      ],
+      "lint": null
+    },
+    {
+      "id": "docker",
+      "category": "DevOps",
+      "specificity": 40,
+      "detect": {
+        "files": [
+          "Dockerfile"
+        ]
+      },
+      "rules": [
+        "docker"
+      ],
+      "lint": null
+    },
+    {
+      "id": "kubernetes",
+      "category": "DevOps",
+      "specificity": 55,
+      "detect": {
+        "files": [
+          "kustomization.yaml",
+          "kustomization.yml"
+        ]
+      },
+      "rules": [
+        "kubernetes"
+      ],
+      "lint": null
+    },
+    {
+      "id": "terraform",
+      "category": "DevOps",
+      "specificity": 50,
+      "detect": {
+        "extensions": [
+          {
+            "ext": "tf",
+            "minCount": 1
+          }
+        ]
+      },
+      "rules": [
+        "terraform"
+      ],
+      "lint": null
+    },
+    {
+      "id": "github-actions",
+      "category": "DevOps",
+      "specificity": 40,
+      "detect": {
+        "files": [
+          ".github/workflows"
+        ]
+      },
+      "rules": [
+        "github-actions"
+      ],
+      "lint": null
+    },
+    {
+      "id": "rest-api",
+      "category": "横切",
+      "specificity": 30,
+      "detect": {
+        "requiresTags": [
+          "backend"
+        ]
+      },
+      "rules": [
+        "rest-api"
+      ],
+      "lint": null
+    },
+    {
+      "id": "security",
+      "category": "横切",
+      "specificity": 20,
+      "detect": {
+        "requiresTags": [
+          "backend",
+          "frontend"
+        ]
+      },
+      "rules": [
+        "security"
+      ],
+      "lint": null
+    },
+    {
+      "id": "a11y",
+      "category": "横切",
+      "specificity": 20,
+      "detect": {
+        "requiresTags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "a11y"
+      ],
+      "lint": null
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "detect-monorepo-root",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "dependencies": {
+    "react": "^18.2.0"
+  }
+}
