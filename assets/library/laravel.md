@@ -11,10 +11,12 @@ source: original
 ## Hard Constraints (MUST NOT)
 
 - MUST NOT pass raw request input to `Model::create()`/`fill()` without a `$fillable`/`$guarded` allowlist - unguarded mass assignment lets attackers set arbitrary columns.
+- MUST NOT render user-controlled data through Blade's unescaped `{!! $var !!}` - it bypasses XSS escaping; use `{{ }}`, which auto-escapes.
 - MUST NOT build queries with raw string interpolation (`DB::raw`, `whereRaw` with concatenated input) - bind parameters instead.
 - MUST NOT validate input with scattered manual `if` checks in a controller when a Form Request (`$request->validate()` or a dedicated `FormRequest` class) can declare the rules.
 - MUST NOT access a relationship inside a loop without eager loading (`with()`) - this is Eloquent's N+1 trap.
-- MUST NOT commit secrets (`APP_KEY`, DB credentials, API tokens) into `config/*.php` as literals - read them from `.env` via `env()`/config caching.
+- MUST NOT call `env()` outside `config/*.php` - after `config:cache` (production) the `.env` is not loaded and `env()` returns null; read values through `config()` in application code.
+- MUST NOT commit secrets (`APP_KEY`, DB credentials, API tokens) into `config/*.php` as literals - keep them in `.env` and expose them through config files as `config()` keys.
 
 ## Ecosystem Idioms & Conventions
 
