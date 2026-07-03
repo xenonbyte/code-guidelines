@@ -62,6 +62,17 @@ test('THIRD-PARTY.md exists', () => {
   assert.ok(existsSync(THIRD_PARTY_PATH), 'THIRD-PARTY.md must exist');
 });
 
+test('THIRD-PARTY.md contains its key attribution language', () => {
+  const thirdParty = readFileSync(THIRD_PARTY_PATH, 'utf8');
+  // Pins the substance of the attribution/license wording so silent corruption (e.g. an edit
+  // that drops a credited project or its license) is caught, not just the file's existence.
+  assert.match(thirdParty, /CC0-1\.0/);
+  assert.match(thirdParty, /MIT/);
+  assert.match(thirdParty, /awesome-cursorrules/);
+  assert.match(thirdParty, /awesome-copilot/);
+  assert.match(thirdParty, /original/);
+});
+
 test('README heading structure (level sequence) is aligned between EN and ZH', () => {
   const en = readFileSync(README_EN_PATH, 'utf8');
   const zh = readFileSync(README_ZH_PATH, 'utf8');

@@ -12,6 +12,8 @@ import { stableStringify, normalizeEol } from '../src/build/build.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BUILD_MJS_PATH = join(HERE, '..', 'src', 'build', 'build.mjs');
+const PLATFORMS_MJS_PATH = join(HERE, '..', 'src', 'build', 'platforms.mjs');
+const REGISTRY_MJS_PATH = join(HERE, '..', 'src', 'build', 'registry.mjs');
 
 // --- stableStringify: sorted keys, deterministic regardless of insertion order -------------
 
@@ -94,6 +96,23 @@ test('build.mjs source contains no timestamp or randomness calls', () => {
   assert.doesNotMatch(source, /Math\.random\s*\(/);
   assert.doesNotMatch(source, /crypto\.random/i);
 });
+
+// The build pipeline is split across build.mjs, platforms.mjs (per-platform emitters), and
+// registry.mjs (the explicit skill registry) — the determinism guard above only covered
+// build.mjs, leaving a coverage gap on the other two build-time modules. Extend it here so all
+// three are pinned against timestamp/randomness non-determinism (RISK-DET-001).
+for (const [label, path] of [
+  ['platforms.mjs', PLATFORMS_MJS_PATH],
+  ['registry.mjs', REGISTRY_MJS_PATH],
+]) {
+  test(`${label} source contains no timestamp or randomness calls`, () => {
+    const source = readFileSync(path, 'utf8');
+    assert.doesNotMatch(source, /Date\.now\s*\(/);
+    assert.doesNotMatch(source, /new Date\s*\(/);
+    assert.doesNotMatch(source, /Math\.random\s*\(/);
+    assert.doesNotMatch(source, /crypto\.random/i);
+  });
+}
 
 test('stableStringify and normalizeEol produce identical output across repeated calls (no hidden nondeterminism)', () => {
   const input = { z: 1, a: [3, 1, 2], nested: { y: 'hello\r\nworld\r\n' } };
