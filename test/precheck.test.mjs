@@ -299,3 +299,91 @@ test('sync: orphan BEGIN-only marker end-to-end → exit 4, zero writes', async 
   const after = snapshotTree(repo);
   assert.deepEqual(after, before, 'zero writes anywhere under the target dir');
 });
+
+// ---------------------------------------------------------------------------------------------
+// Fix Wave 1 (task-11-review.md #1 / #2): two SPEC-PRECHECK-001 / SPEC-HOSTFMT-001 contract lines
+// that had zero coverage anywhere in the suite — multi-entry-file maintenance ("有几个维护几个")
+// and the "project-conventions.md pointer always ranks first" ordering guarantee.
+// ---------------------------------------------------------------------------------------------
+
+test('sync: MORE THAN ONE entry file present simultaneously (CLAUDE.md + AGENTS.md), platform=claude → BOTH get the managed block independently maintained, each own outside-block bytes unchanged (SPEC-PRECHECK-001 "有几个维护几个")', async () => {
+  const repo = tmpDir('cg-precheck-multi-');
+  const assetRoot = buildMinimalAssetRoot();
+  const claudeOriginal = '# Project (Claude)\n\nSome CLAUDE-specific notes.\n';
+  const agentsOriginal = '# Project (Agents)\n\nSome AGENTS-specific notes, distinct from CLAUDE.md.\n';
+  writeF(join(repo, 'CLAUDE.md'), claudeOriginal);
+  writeF(join(repo, 'AGENTS.md'), agentsOriginal);
+
+  // precheck is keyed only on the CURRENT platform's mapped file (CLAUDE.md for claude); it must
+  // still pass even though a second, non-current-platform entry file (AGENTS.md) also exists.
+  const r = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
+  assert.equal(r.exitCode, 0, 'precheck passes on CLAUDE.md for platform claude');
+
+  const claudeAfter = readFileSync(join(repo, 'CLAUDE.md'), 'utf8');
+  const agentsAfter = readFileSync(join(repo, 'AGENTS.md'), 'utf8');
+
+  for (const [label, before, after] of [
+    ['CLAUDE.md', claudeOriginal, claudeAfter],
+    ['AGENTS.md', agentsOriginal, agentsAfter],
+  ]) {
+    assert.ok(
+      after.includes(BLOCK_BEGIN) && after.includes(BLOCK_END),
+      `${label} gets its OWN managed block, not only the current platform's mapped file`,
+    );
+    assert.ok(after.startsWith(before), `${label}: original bytes preserved verbatim before the inserted block`);
+    const outsideAfterEnd = after.slice(after.indexOf(BLOCK_END) + BLOCK_END.length);
+    assert.equal(outsideAfterEnd, '\n', `${label}: nothing but a trailing newline after the block`);
+  }
+
+  assert.notEqual(claudeAfter, agentsAfter, 'sanity: each file kept its own distinct body, not a copy of the other');
+  assert.equal(existsSync(join(repo, 'GEMINI.md')), false, 'GEMINI.md is still never created (only existing files are maintained)');
+});
+
+test('sync: project-conventions.md present + a rule pointer both in the block → conventions pointer ranks FIRST (SPEC-HOSTFMT-001 "project-conventions.md 存在时其指针恒排第一")', async () => {
+  // Fixture rule declaring appliesTo, via the injectable library asset dir, so a second,
+  // non-conventions pointer kind (a glob-conditioned rule pointer) is also present in the block.
+  const RULE_WITH_APPLIES_TO = [
+    '---',
+    'name: guardrails-core',
+    'description: core guardrails',
+    'appliesTo:',
+    '  - "*.ts"',
+    'stacks: [guardrails-core]',
+    'source: original',
+    '---',
+    '# guardrails-core',
+    'Body.',
+    '',
+  ].join('\n');
+  const assetRoot = buildMinimalAssetRoot();
+  writeF(join(assetRoot, 'library', 'guardrails-core.md'), RULE_WITH_APPLIES_TO);
+
+  const repo = tmpDir('cg-precheck-hostfmt-order-');
+  writeF(join(repo, 'CLAUDE.md'), '# App\n');
+  // Present BEFORE sync runs: conventionsPresent is a plain existsSync check, independent of the
+  // manifest, so writing the file directly onto disk is sufficient to drive this branch.
+  writeF(join(repo, '.code-guidelines', 'project-conventions.md'), '# Conventions\n- always X (a.ts, b.ts)\n');
+
+  const r = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
+  assert.equal(r.exitCode, 0);
+
+  const claudeMd = readFileSync(join(repo, 'CLAUDE.md'), 'utf8');
+  const blockMatch = claudeMd.match(/<!-- code-guidelines:begin -->[\s\S]*?<!-- code-guidelines:end -->/);
+  assert.ok(blockMatch, 'managed block present');
+
+  const pointerLines = blockMatch[0].split('\n').filter((l) => l.startsWith('- '));
+  assert.ok(pointerLines.length >= 2, 'both a conventions pointer and a rule pointer are present');
+  assert.ok(
+    pointerLines[0].includes('project-conventions.md') && pointerLines[0].includes('project conventions'),
+    `conventions pointer must be the FIRST pointer line, got: ${pointerLines[0]}`,
+  );
+  assert.ok(
+    pointerLines.slice(1).some((l) => l.includes('guardrails-core.md')),
+    'the rule pointer is present, ranked after the conventions pointer',
+  );
+
+  const conventionsIdx = blockMatch[0].indexOf('project-conventions.md');
+  const ruleIdx = blockMatch[0].indexOf('guardrails-core.md');
+  assert.ok(conventionsIdx !== -1 && ruleIdx !== -1);
+  assert.ok(conventionsIdx < ruleIdx, 'conventions pointer byte-offset precedes the rule pointer byte-offset');
+});
