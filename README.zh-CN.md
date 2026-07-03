@@ -17,32 +17,86 @@ opencode、Gemini CLI——交付唯一一个显式调用的技能 `/code-guidel
    性布防;
 3. 项目专属的 `project-conventions.md`,按需从目标仓库自身源码现场蒸馏而来。
 
-该技能按机器(按平台)安装一次,随后在每个目标项目中通过显式键入 `/code-guidelines` 来调用。
+该技能通过 `code-guidelines` CLI 按机器(按平台)安装一次,随后在每个目标项目中通过显式键入
+`/code-guidelines` 来调用。
+
+## 支持的平台
+
+同一个技能被交付到四个 AI 编程工具。每个平台拿到平台原生形态的产物,并各自维护该平台自己的入口文件:
+
+| 平台 | 已装技能产物 | 维护的入口文件 | 调用方式 |
+|---|---|---|---|
+| Claude Code | `~/.claude/skills/code-guidelines/SKILL.md`(Markdown + `disable-model-invocation: true`) | `CLAUDE.md` | `/code-guidelines` |
+| Codex | `~/.codex/prompts/code-guidelines.md`(自定义 prompt) | `AGENTS.md` | `/code-guidelines` |
+| opencode | `~/.config/opencode/commands/code-guidelines.md` | `AGENTS.md` | `/code-guidelines` |
+| Gemini CLI | `~/.gemini/commands/code-guidelines.toml`(TOML) | `GEMINI.md` | `/code-guidelines` |
+
+`install` / `uninstall` 的 `--platform` 参数接受 `claude`、`codex`、`opencode`、`gemini` 的任意逗号
+分隔子集(默认四个全装)。
+
+## 支持的语言与技术栈
+
+检测会从 **9 大类共 48 个守卫规则文件** 中选择。`guardrails-core` 恒定生效;其余按检出仓库技术栈选取,
+每仓总序封顶 12 个规则文件:
+
+- **核心(1):** guardrails-core —— 通用整洁代码 / 反过度工程守卫,恒定生效。
+- **语言(12):** TypeScript、JavaScript、Python、Go、Rust、Java、Kotlin、Swift、C#、C++、PHP、Ruby。
+- **前端(9):** React、Next.js、Vue、Nuxt、Angular、Svelte、Astro、Tailwind CSS、HTML/CSS。
+- **移动(4):** React Native、Flutter、Android(Jetpack Compose)、iOS(SwiftUI)。
+- **后端(9):** Node.js API、Django、FastAPI、Flask、Spring Boot、Laravel、Rails、ASP.NET Core、GraphQL。
+- **数据(3):** SQL、MongoDB、Python ML。
+- **测试(3):** JS 单元测试、端到端测试、pytest。
+- **DevOps(4):** Docker、Kubernetes、Terraform、GitHub Actions。
+- **横切(3):** REST API、安全(OWASP 向)、无障碍(a11y)。
+
+**lint 基线(11 套工具链)** 在某个栈首次检出、且项目对该工具尚无既有配置时免费一次性布防——采用每个
+工具当前(非弃用)的配置格式:
+
+| 语言 | 基线配置 |
+|---|---|
+| JS / TypeScript | ESLint flat config(`eslint.config.mjs`)+ Prettier + 严格 `tsconfig.json` |
+| Python | Ruff(`ruff.toml`)+ mypy(strict) |
+| Go | golangci-lint v2(`.golangci.yml`) |
+| Rust | rustfmt + Clippy |
+| Java | Checkstyle |
+| Kotlin | ktlint(`.editorconfig`)+ detekt |
+| Swift | SwiftLint |
+| C# | Roslyn 分析器(`.editorconfig` + `Directory.Build.props`) |
+| PHP | PHP-CS-Fixer + PHPStan |
+| Ruby | RuboCop |
+| C / C++ | clang-format + clang-tidy |
 
 ## 怎么使用
 
 ### 1. 安装技能
 
-从本仓库的检出目录运行安装器(本项目未发布到任何包 registry——原因见下文"设计说明"以及
-`THIRD-PARTY.md`/范围说明):
+从 npm 安装——该 CLI **零第三方依赖**。一次性使用(无需全局安装):
 
 ```sh
-node bin/code-guidelines install
+npx code-guidelines install
 ```
 
-默认会安装到全部四个受支持平台。若只想安装其中一部分,传入以逗号分隔的 `--platform` 列表,取值来自
-`claude`、`codex`、`opencode`、`gemini`:
+或全局安装 CLI 后再运行:
 
 ```sh
-node bin/code-guidelines install --platform claude,codex
+npm install -g code-guidelines
+code-guidelines install
+```
+
+也可以直接从本仓库的检出目录运行:`node bin/code-guidelines install`。
+
+默认会把技能安装到全部四个受支持平台。若只想安装其中一部分,传入以逗号分隔的 `--platform` 列表,取值
+来自 `claude`、`codex`、`opencode`、`gemini`:
+
+```sh
+code-guidelines install --platform claude,codex
 ```
 
 其他 CLI 命令:
 
-- `node bin/code-guidelines status` —— 只读报告当前已安装内容(manifest 形状、已装技能/资产/平台)。
-- `node bin/code-guidelines uninstall [--platform <list>]` —— 移除本工具拥有、且未被手工改动过的已装
-  文件。
-- `node bin/code-guidelines version` / `help` —— 打印版本 / 用法。
+- `code-guidelines status` —— 只读报告当前已安装内容(manifest 形状、已装技能/资产/平台)。
+- `code-guidelines uninstall [--platform <list>]` —— 移除本工具拥有、且未被手工改动过的已装文件。
+- `code-guidelines version` / `help` —— 打印版本 / 用法。
 
 ### 2. 在目标项目中调用技能
 

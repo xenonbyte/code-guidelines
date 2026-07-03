@@ -1,16 +1,51 @@
 {
   "name": "code-guidelines",
-  "type": "module",
   "version": "0.1.0",
+  "description": "A zero-dependency installer that delivers one explicitly-invoked /code-guidelines skill to Claude Code, Codex, opencode, and Gemini CLI — syncing curated guardrail rules and lint baselines into a target repository.",
+  "type": "module",
   "bin": {
     "code-guidelines": "bin/code-guidelines"
   },
+  "files": [
+    "bin",
+    "src",
+    "assets",
+    "generated",
+    "fragments",
+    "README.zh-CN.md",
+    "THIRD-PARTY.md"
+  ],
   "scripts": {
     "test": "node --test",
-    "build": "node src/build/build.mjs"
+    "build": "node src/build/build.mjs",
+    "check": "node src/build/build.mjs --check"
   },
   "engines": {
     "node": ">=20"
   },
-  "license": "MIT"
+  "keywords": [
+    "claude-code",
+    "codex",
+    "opencode",
+    "gemini-cli",
+    "ai-coding",
+    "agent-skill",
+    "coding-guidelines",
+    "lint",
+    "guardrails",
+    "cursorrules"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xenonbyte/code-guidelines.git"
+  },
+  "homepage": "https://github.com/xenonbyte/code-guidelines#readme",
+  "bugs": {
+    "url": "https://github.com/xenonbyte/code-guidelines/issues"
+  },
+  "author": "xenonbyte",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
 }

@@ -20,34 +20,91 @@ into a single context-hungry file, it delivers three layers of constraints on de
 3. a project-specific `project-conventions.md`, distilled on request from the target repository's
    own source code.
 
-The skill is installed once per machine (per platform) via this repository's CLI, and then invoked
-per target project by explicitly typing `/code-guidelines`.
+The skill is installed once per machine (per platform) via the `code-guidelines` CLI, and then
+invoked per target project by explicitly typing `/code-guidelines`.
+
+## Supported platforms
+
+The one skill is delivered to four AI coding tools. Each receives the platform-native artifact form
+and manages that platform's own entry file:
+
+| Platform | Installed skill artifact | Entry file it manages | Invocation |
+|---|---|---|---|
+| Claude Code | `~/.claude/skills/code-guidelines/SKILL.md` (Markdown + `disable-model-invocation: true`) | `CLAUDE.md` | `/code-guidelines` |
+| Codex | `~/.codex/prompts/code-guidelines.md` (custom prompt) | `AGENTS.md` | `/code-guidelines` |
+| opencode | `~/.config/opencode/commands/code-guidelines.md` | `AGENTS.md` | `/code-guidelines` |
+| Gemini CLI | `~/.gemini/commands/code-guidelines.toml` (TOML) | `GEMINI.md` | `/code-guidelines` |
+
+The `--platform` flag on `install` / `uninstall` accepts any comma-separated subset of `claude`,
+`codex`, `opencode`, `gemini` (default: all four).
+
+## Supported stacks & languages
+
+Detection selects from **48 guardrail rule files across 9 categories**. `guardrails-core` is always
+applied; the rest are selected by detecting the repository's stack, with a total-ordered cap of 12
+rule files per repository:
+
+- **Core (1):** guardrails-core — universal clean-code / anti-over-engineering guardrails, always on.
+- **Languages (12):** TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, Swift, C#, C++, PHP, Ruby.
+- **Frontend (9):** React, Next.js, Vue, Nuxt, Angular, Svelte, Astro, Tailwind CSS, HTML/CSS.
+- **Mobile (4):** React Native, Flutter, Android (Jetpack Compose), iOS (SwiftUI).
+- **Backend (9):** Node.js API, Django, FastAPI, Flask, Spring Boot, Laravel, Rails, ASP.NET Core, GraphQL.
+- **Data (3):** SQL, MongoDB, Python ML.
+- **Testing (3):** JS unit testing, end-to-end testing, pytest.
+- **DevOps (4):** Docker, Kubernetes, Terraform, GitHub Actions.
+- **Cross-cutting (3):** REST API, Security (OWASP-oriented), Accessibility (a11y).
+
+**Lint baselines (11 toolchains)** are armed once, for free, when a stack is first detected and the
+project has no existing config for that tool — using each tool's current (non-deprecated) format:
+
+| Language | Baseline configs |
+|---|---|
+| JS / TypeScript | ESLint flat config (`eslint.config.mjs`) + Prettier + strict `tsconfig.json` |
+| Python | Ruff (`ruff.toml`) + mypy (strict) |
+| Go | golangci-lint v2 (`.golangci.yml`) |
+| Rust | rustfmt + Clippy |
+| Java | Checkstyle |
+| Kotlin | ktlint (`.editorconfig`) + detekt |
+| Swift | SwiftLint |
+| C# | Roslyn analyzers (`.editorconfig` + `Directory.Build.props`) |
+| PHP | PHP-CS-Fixer + PHPStan |
+| Ruby | RuboCop |
+| C / C++ | clang-format + clang-tidy |
 
 ## How to use
 
 ### 1. Install the skill
 
-Run the installer from a checkout of this repository (it is not published to a package registry —
-see the Design notes below and `THIRD-PARTY.md`/scope notes for why):
+Install from npm — the CLI has **zero third-party dependencies**. Run it once without a global
+install:
 
 ```sh
-node bin/code-guidelines install
+npx code-guidelines install
 ```
 
-By default this installs to all four supported platforms. To install only a subset, pass a
+Or install the CLI globally and run it:
+
+```sh
+npm install -g code-guidelines
+code-guidelines install
+```
+
+You can also run it directly from a checkout of this repository: `node bin/code-guidelines install`.
+
+By default this installs the skill to all four supported platforms. To install only a subset, pass a
 comma-separated `--platform` list drawn from `claude`, `codex`, `opencode`, `gemini`:
 
 ```sh
-node bin/code-guidelines install --platform claude,codex
+code-guidelines install --platform claude,codex
 ```
 
 Other CLI commands:
 
-- `node bin/code-guidelines status` — read-only report of what is currently installed (manifest
-  shape, installed skills/assets/platforms).
-- `node bin/code-guidelines uninstall [--platform <list>]` — remove installed files that this tool
-  owns and has not seen modified by hand.
-- `node bin/code-guidelines version` / `help` — print version / usage.
+- `code-guidelines status` — read-only report of what is currently installed (manifest shape,
+  installed skills/assets/platforms).
+- `code-guidelines uninstall [--platform <list>]` — remove installed files that this tool owns and
+  has not seen modified by hand.
+- `code-guidelines version` / `help` — print version / usage.
 
 ### 2. Invoke the skill in a target project
 
