@@ -16,6 +16,8 @@ source: original
 - MUST NOT catch and swallow `DataAccessException`/`SQLException` without translating it into a meaningful domain error or rethrowing it.
 - MUST NOT expose JPA entities directly as API response bodies - map to a DTO to avoid leaking persistence internals and lazy-loading exceptions.
 - MUST NOT trigger lazy-loaded associations outside an open persistence context (view/controller layer) - fetch what is needed in the service layer.
+- MUST NOT build SQL by string concatenation - use parameterized queries (Spring Data JPA derived queries/`@Query`, or `NamedParameterJdbcTemplate`).
+- MUST NOT hardcode secrets in code or config - externalize them via environment variables or a secret manager.
 
 ## Ecosystem Idioms & Conventions
 

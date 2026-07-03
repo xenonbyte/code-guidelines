@@ -15,6 +15,10 @@ source: original
 - MUST NOT accept a request DTO in an action without model validation (`[ApiController]`'s automatic `ModelState` check, or explicit checks) before using it.
 - MUST NOT share a single `DbContext` instance across concurrent requests - it is not thread-safe; resolve it scoped per-request via DI.
 - MUST NOT store secrets/connection strings in `appsettings.json` checked into source - use user-secrets, environment variables, or a secret manager.
+- MUST NOT leave a mutation endpoint without role/policy-based authorization - enforce it consistently across controllers and Minimal APIs.
+- MUST NOT return ad-hoc error response shapes - use standardized Problem Details (RFC 9457) responses.
+- MUST NOT use `float`/`double` for monetary values - use `decimal` and preserve it through the whole calculation.
+- MUST NOT reach for ad-hoc distributed transactions across aggregates - keep strong consistency within a single aggregate/transaction and use domain events for cross-aggregate consistency.
 
 ## Ecosystem Idioms & Conventions
 

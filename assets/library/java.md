@@ -15,6 +15,9 @@ source: original
 - MUST NOT return `null` from a method whose contract implies a collection; return an empty collection instead.
 - MUST NOT perform blocking I/O inside code paths documented as non-blocking without an explicit scheduler switch.
 - MUST NOT expose mutable internal collections directly from getters; return defensive copies or immutable views.
+- MUST NOT override `equals()` without also overriding `hashCode()`, or vice versa.
+- MUST NOT share mutable state across threads without synchronization (`synchronized`, locks, `java.util.concurrent`, or immutable/atomic types).
+- MUST NOT rely on `finalize()`/`Cleaner` to release resources; use try-with-resources or an explicit `close()`.
 
 ## Ecosystem Idioms & Conventions
 

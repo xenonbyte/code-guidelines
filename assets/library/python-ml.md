@@ -15,6 +15,7 @@ source: original
 - MUST NOT leave random seeds unset for a stochastic step (train/test split, model init, shuffling) in code meant to produce reproducible or comparable results.
 - MUST NOT keep the only copy of a preprocessing step inline in a notebook cell that is not also captured in a versioned pipeline/script used at inference time - training/serving skew follows.
 - MUST NOT commit large datasets, model checkpoints, or data-source credentials into the source repository.
+- MUST NOT use random splits for temporal/sequential data; use time-ordered splits to prevent look-ahead leakage.
 
 ## Ecosystem Idioms & Conventions
 

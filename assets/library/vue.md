@@ -15,6 +15,9 @@ source: original
 - MUST NOT hold a derived value in `ref`/`reactive` state when a `computed()` would keep it in sync automatically — manual copies go stale.
 - MUST NOT reach into another component's internal state through `$refs` to bypass its props/emit contract, beyond calling exposed imperative methods.
 - MUST NOT create module-level mutable singletons that bypass the reactivity system for cross-component shared state — use a store.
+- MUST NOT destructure a `reactive()` object — it breaks reactivity; use `toRefs()`/`toRef()` to pull out individual reactive bindings.
+- MUST NOT render untrusted input with `v-html` — it is an XSS vector; sanitize (e.g. DOMPurify) if rendering raw HTML is unavoidable.
+- MUST clean up watchers, timers, listeners, and subscriptions in `onUnmounted` (or via the watcher's `onCleanup` callback) to cancel stale async work.
 
 ## Ecosystem Idioms & Conventions
 

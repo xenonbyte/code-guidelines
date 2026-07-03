@@ -16,6 +16,7 @@ source: original
 - MUST NOT run a container as `privileged: true` or without a `securityContext` that drops unnecessary Linux capabilities and disables privilege escalation.
 - MUST NOT ship a service that takes meaningful time to become ready without `readinessProbe`/`livenessProbe`; without them, traffic reaches unready pods and deadlocks go undetected.
 - MUST NOT hardcode cluster- or environment-specific values (namespace, hostname, replica count) directly in a manifest meant to run in multiple environments.
+- MUST NOT omit `securityContext.runAsNonRoot: true` and `readOnlyRootFilesystem: true` on pods/containers; without them an image can still run as root at the container level, defeating a Dockerfile `USER`.
 
 ## Ecosystem Idioms & Conventions
 

@@ -16,6 +16,7 @@ source: original
 - MUST NOT leak internal implementation details (stack traces, SQL fragments, internal IDs, file paths) in error responses returned to clients.
 - MUST NOT use `GET` requests to perform state-mutating side effects; reserve mutation for `POST`/`PUT`/`PATCH`/`DELETE`.
 - MUST NOT return `200 OK` for a failed operation; use accurate HTTP status codes (4xx for client errors, 5xx for server errors).
+- MUST NOT expose an endpoint that reads or mutates non-public data without an authentication and authorization check.
 
 ## Ecosystem Idioms & Conventions
 

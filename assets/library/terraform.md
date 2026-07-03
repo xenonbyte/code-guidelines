@@ -15,6 +15,7 @@ source: original
 - MUST NOT leave provider version constraints unpinned (missing `required_providers` or unbounded `~>` ranges); pin explicit versions and commit `.terraform.lock.hcl`.
 - MUST NOT run `terraform apply -auto-approve` against shared or production state without a prior `plan` reviewed by a human or gated in CI.
 - MUST NOT manage the same resource from more than one state file/workspace without an explicit `import`/`moved` strategy; this causes drift and accidental destroys.
+- MUST NOT declare a variable or output that holds sensitive data without `sensitive = true`; unmarked values are printed in plain text in `plan`/`apply` output and CI logs.
 
 ## Ecosystem Idioms & Conventions
 

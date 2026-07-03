@@ -15,6 +15,7 @@ source: original
 - MUST NOT put business logic or network/database calls directly inside a widget's `build` method — belongs in a separate layer (bloc/provider/service).
 - MUST NOT omit a `key` on items in a reorderable or rebuildable list — breaks widget identity and animation continuity.
 - MUST NOT ignore a `Future` whose failure needs handling — `await` it or attach explicit error handling.
+- MUST NOT mutate a domain/data model in place from the UI layer — treat models as immutable value objects (create a new instance to reflect changes) and keep data flowing one-way from the data layer to the UI.
 
 ## Ecosystem Idioms & Conventions
 

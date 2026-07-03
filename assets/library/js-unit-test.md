@@ -15,6 +15,7 @@ source: original
 - MUST NOT leave a test with no assertion, or with an assertion that can never fail (e.g. asserting a mock was defined) - a test that cannot fail is not a test.
 - MUST NOT use real timers, real network calls, or real timestamps (`Date.now()`, `setTimeout`) directly in a unit test - fake or mock them, or the test becomes flaky and slow.
 - MUST NOT swallow an assertion failure inside a `try/catch` in the test body - let it propagate so the test framework reports the failure.
+- MUST NOT modify the code under test merely to make it easier to test - test the code as it is.
 
 ## Ecosystem Idioms & Conventions
 

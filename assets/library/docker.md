@@ -16,6 +16,7 @@ source: original
 - MUST NOT `COPY . .` without a `.dockerignore` that excludes `.git`, local env files, and dependency caches - the entire build context becomes part of the build.
 - MUST NOT carry build-only toolchains (compilers, package managers) into the final runtime image; use a multi-stage build to separate build and runtime layers.
 - MUST NOT hardcode environment-specific values (hostnames, ports meant to vary) inside the image; inject them at runtime via env vars or config mounts.
+- MUST NOT leave default Linux capabilities attached or the root filesystem writable when the runtime doesn't need it; drop unneeded capabilities (`cap_drop`) and set `read_only: true` where feasible.
 
 ## Ecosystem Idioms & Conventions
 

@@ -20,6 +20,7 @@ source: original
 - MUST NOT hardcode values that vary by environment or product (endpoints, IDs, timeouts, secrets); derive them from configuration or named constants.
 - MUST NOT add a fallback path that is unobservable; any fallback must be visible in logs, metrics, or errors.
 - MUST NOT reformat or restructure unrelated code while making an unrelated change.
+- MUST NOT acquire a resource (timer, listener, subscription, handle, connection, watcher) without a corresponding deterministic release or cleanup.
 
 ## Ecosystem Idioms & Conventions
 

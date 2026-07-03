@@ -15,6 +15,7 @@ source: original
 - MUST NOT print secrets to logs (`echo`, `cat`) or pass them as CLI arguments; pass secrets via environment variables consumed directly by the tool that needs them.
 - MUST NOT check out and build untrusted fork code inside a `pull_request_target` job that also has access to repository secrets; this pattern enables secret exfiltration.
 - MUST NOT auto-execute untrusted PR content (via `workflow_run` or `pull_request_target`) without an explicit approval gate before secrets or elevated tokens are in scope.
+- MUST NOT authenticate to a cloud provider (AWS/Azure/GCP) with long-lived static access keys stored as secrets when OIDC federation is available; prefer OIDC for short-lived, workflow-scoped credentials.
 
 ## Ecosystem Idioms & Conventions
 

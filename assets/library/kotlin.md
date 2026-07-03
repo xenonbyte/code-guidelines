@@ -15,6 +15,8 @@ source: original
 - MUST NOT mutate a `var` property shared across coroutines or threads without synchronization.
 - MUST NOT launch a coroutine with an exception handler that silently absorbs failures.
 - MUST NOT expose mutable collection types (`MutableList`, `MutableMap`) from a public API when a read-only view suffices.
+- MUST NOT let a Java platform type (`T!`) flow into Kotlin unannotated; assign an explicit nullable or non-null type at the interop boundary.
+- MUST NOT manage a `Closeable` with manual try/finally; use `use { }` so it closes even on exception.
 
 ## Ecosystem Idioms & Conventions
 

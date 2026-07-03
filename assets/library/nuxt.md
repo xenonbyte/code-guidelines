@@ -15,6 +15,7 @@ source: original
 - MUST NOT mutate the value returned by `useState` outside its intended reactive update pattern — causes SSR/client hydration mismatches.
 - MUST NOT put database or filesystem access in components or pages — restrict it to the `server/` directory (Nitro handlers).
 - MUST NOT reference `window`/`document` on the initial render path without a client-only guard, since that code also runs during SSR.
+- MUST NOT store cross-request/cross-user state in module-level mutable variables on the server — the Nitro/Node process is long-lived and leaks data between users; use request-scoped state (`useState`, event context) instead.
 
 ## Ecosystem Idioms & Conventions
 

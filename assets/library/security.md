@@ -17,6 +17,11 @@ source: original
 - MUST NOT store passwords with reversible encryption or a fast hash (MD5, SHA-1, plain SHA-256); use a slow adaptive hash (bcrypt, argon2, scrypt) with a per-user salt.
 - MUST NOT roll a custom cryptographic primitive or session-token scheme; use vetted libraries and standard, current algorithms.
 - MUST NOT disable TLS certificate verification or fall back to plaintext transport for any credential-bearing request, including internal service-to-service calls.
+- MUST NOT render user-controlled data as raw HTML/DOM (`innerHTML`, `dangerouslySetInnerHTML`, `v-html`, unescaped template output) without sanitizing it first; prefer text-only interpolation to prevent XSS.
+- MUST NOT fetch a URL/host built from user input without a scheme+host allowlist and blocking of resolved private/internal/loopback IPs; unrestricted server-side requests enable SSRF.
+- MUST NOT serve or mutate a resource looked up by ID from the request without verifying the caller owns or is scoped to it, even when authenticated; unchecked ID lookups enable IDOR.
+- MUST NOT bind an entire request body onto a create/update operation; allow-list the mutable fields so an attacker cannot set `role`/`isAdmin`/other privileged fields (mass assignment).
+- MUST NOT deserialize untrusted data with unsafe/native deserializers (`pickle`, unchecked YAML); use JSON or a restricted safe loader.
 
 ## Ecosystem Idioms & Conventions
 

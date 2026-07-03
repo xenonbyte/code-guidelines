@@ -16,6 +16,10 @@ source: original
 - MUST NOT read secrets or DB credentials from anywhere but environment/config at startup - never hardcode them or accept them from request input.
 - MUST NOT hold request-scoped data in a single shared mutable module-level object - concurrent requests interleave on the same event loop tick and will corrupt each other's data.
 - MUST NOT swallow errors with an empty catch in middleware; unresolved failures must propagate to the framework's centralized error handler.
+- MUST NOT leak internal error details or stack traces to clients - return a generic message and log the full error server-side.
+- MUST NOT include sensitive fields (password hashes, tokens, internal flags) in default query/serialization output.
+- MUST NOT rely on authentication alone for mutating endpoints - enforce authorization (role/ownership) too.
+- MUST NOT leave abuse-prone endpoints (login/auth, expensive queries) without rate limiting.
 
 ## Ecosystem Idioms & Conventions
 

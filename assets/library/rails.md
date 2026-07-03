@@ -15,6 +15,8 @@ source: original
 - MUST NOT access an association inside a loop without `includes`/`eager_load` - the classic ActiveRecord N+1.
 - MUST NOT put side effects with external I/O (network calls, emails) inside an ActiveRecord callback (`before_save`, `after_create`) - a callback that fails or blocks makes model persistence unpredictable and hard to test.
 - MUST NOT commit credentials into `config/` in plaintext - use Rails encrypted credentials (`credentials.yml.enc`) or environment variables.
+- MUST NOT rely on authentication or `before_action` loading alone to guard mutations - authorize resource access with a policy layer (e.g. Pundit) on every mutation.
+- MUST NOT expose sensitive fields (password digests, tokens) through API responses/serializers.
 
 ## Ecosystem Idioms & Conventions
 

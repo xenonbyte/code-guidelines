@@ -15,6 +15,8 @@ source: original
 - MUST NOT use C-style casts to bypass the type system; use the appropriate named cast (`static_cast`, `dynamic_cast`, etc.) or redesign the type.
 - MUST NOT return a reference or pointer to a local (stack) variable.
 - MUST NOT share mutable state across threads without a synchronization primitive or a lock-free design with documented invariants.
+- MUST NOT define one of the five special members (destructor, copy/move constructor, copy/move assignment) without considering all five (Rule of Five); prefer Rule of Zero when RAII members already suffice.
+- MUST NOT violate the One Definition Rule: no conflicting or duplicate definitions of a non-inline entity across translation units.
 
 ## Ecosystem Idioms & Conventions
 

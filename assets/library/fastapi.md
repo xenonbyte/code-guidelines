@@ -15,6 +15,10 @@ source: original
 - MUST NOT duplicate cross-cutting concerns (auth, DB session, pagination params) by hand in every route instead of using FastAPI's `Depends` dependency injection.
 - MUST NOT leak internal exception details (stack traces, DB errors) in an HTTP response body - return a sanitized `HTTPException` detail.
 - MUST NOT share a single DB session/connection across concurrent requests - scope it per-request via a dependency.
+- MUST NOT hand-roll auth checks in a route body - require an auth dependency (`Depends(get_current_user)`) on every protected/business endpoint.
+- MUST NOT raise `HTTPException` (or import `Request`/`Response`) from service/business-logic code - raise domain exceptions and translate to HTTP status only in the route handler.
+- MUST NOT return a DB/ORM object from a route without declaring `response_model` (or an explicit response schema) - otherwise internal fields can leak.
+- MUST NOT instantiate a new `httpx.AsyncClient` (or other pooled client) per call - use one shared client per dependency, closed in the app's lifespan handler.
 
 ## Ecosystem Idioms & Conventions
 

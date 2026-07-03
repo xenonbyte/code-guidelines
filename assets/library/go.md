@@ -15,6 +15,9 @@ source: original
 - MUST NOT share a mutable value across goroutines without a synchronization primitive (mutex, channel).
 - MUST NOT return a typed-nil pointer wrapped in an interface and treat it as if the interface itself were `nil`.
 - MUST NOT block a caller indefinitely on a channel or goroutine without a `context` deadline or cancellation path.
+- MUST NOT close a channel from a receiver; only the owning sender may close a channel.
+- MUST NOT both log and return the same error; handle it once - wrap with `%w` and return, or log and handle at a boundary.
+- MUST NOT build SQL or shell commands by concatenating untrusted input; use parameterized queries or argument vectors instead.
 
 ## Ecosystem Idioms & Conventions
 

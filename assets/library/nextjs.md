@@ -15,6 +15,9 @@ source: original
 - MUST NOT trust client-submitted input inside a Server Action without re-validating and re-authorizing it server-side.
 - MUST NOT fetch data with a client-side `useEffect` when the same data can be fetched in a Server Component before the first render.
 - MUST NOT block the entire route's response on one slow subtree when it can be streamed independently with `Suspense`.
+- MUST await `params`, `searchParams`, `cookies()`, and `headers()` before reading their values — in the App Router these are Promises.
+- MUST NOT pass `{ ssr: false }` to `next/dynamic` inside a Server Component — it is unsupported and errors; move the client-only piece into its own `"use client"` component instead.
+- MUST NOT call your own Route Handler from a Server Component via `fetch('/api/...')` to reuse logic — extract the shared logic into a plain module and call it directly.
 
 ## Ecosystem Idioms & Conventions
 

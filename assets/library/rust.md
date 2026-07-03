@@ -15,6 +15,8 @@ source: original
 - MUST NOT clone data purely to sidestep a borrow-checker error without first considering a reference/lifetime redesign.
 - MUST NOT let a fallible call's `Result` drop silently unused.
 - MUST NOT implement `Drop` with logic that can panic.
+- MUST NOT manually `impl Send`/`Sync` for a type unless the thread-safety invariant is documented and audited; rely on compiler auto-derivation instead.
+- MUST NOT implement `Deref`/`DerefMut` on a type that is not a smart pointer; it causes surprising implicit coercions.
 
 ## Ecosystem Idioms & Conventions
 
