@@ -1,0 +1,30 @@
+# Rendered by src/build/platforms.mjs (PLAN-TASK-008) for the Gemini CLI TOML command format
+# (SPEC-PLATFORM-001, SPEC-BUILD-001). `description` is the universal negative-invocation-guard
+# sentence (fragments.own['triggers.md'] trimmed) — same value as every other platform. `prompt`
+# is a TOML literal multi-line string (no escaping needed) built from SHARED_BODY / PURPOSE /
+# TRIGGERS / BEHAVIOR / OUTPUT, each fragments.shared['body.md'] / fragments.own['purpose.md' |
+# 'triggers.md' | 'behavior.md' | 'output.md'] verbatim, plus ARGUMENT_PLACEHOLDER
+# (params.argumentPlaceholder verbatim; Gemini always sets one — its own runtime argument
+# placeholder, substituted by Gemini CLI itself with the user's actual arguments at run time).
+description = '{{DESCRIPTION}}'
+prompt = '''
+{{SHARED_BODY}}
+
+## Purpose
+
+{{PURPOSE}}
+
+## Triggers
+
+{{TRIGGERS}}
+
+## Behavior
+
+{{BEHAVIOR}}
+
+When this command is invoked with the `distill` argument, it is delivered here as `{{ARGUMENT_PLACEHOLDER}}`.
+
+## Output
+
+{{OUTPUT}}
+'''

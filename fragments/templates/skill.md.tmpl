@@ -1,0 +1,49 @@
+<!--
+  Rendered by src/build/platforms.mjs (PLAN-TASK-008) for the Claude Code / Codex "skill" format
+  (SPEC-PLATFORM-001, SPEC-BUILD-001). Placeholder contract:
+  - Structural frontmatter blocks `{{#key}}...{{/key}}` render only when params.frontmatter[key]
+    is set in registry.mjs (key names match registry keys literally: name, disable-model-invocation,
+    argument-hint); `{{key}}` inside the block substitutes that value. An absent key drops the
+    whole block, including its surrounding blank line.
+  - `description` is NOT registry-driven: every platform gets the same value, fragments.own
+    ['triggers.md'] trimmed (the verbatim negative-invocation-guard sentence).
+  - SHARED_BODY / PURPOSE / TRIGGERS / BEHAVIOR / OUTPUT are fragments.shared['body.md'] and
+    fragments.own['purpose.md' | 'triggers.md' | 'behavior.md' | 'output.md'], each file's full
+    content verbatim.
+  - ARGUMENT_PLACEHOLDER is params.argumentPlaceholder verbatim (e.g. $ARGUMENTS for Codex); its
+    wrapping block is omitted on platforms with no placeholder (Claude).
+-->
+---
+{{#name}}
+name: {{name}}
+{{/name}}
+description: {{DESCRIPTION}}
+{{#disable-model-invocation}}
+disable-model-invocation: {{disable-model-invocation}}
+{{/disable-model-invocation}}
+{{#argument-hint}}
+argument-hint: {{argument-hint}}
+{{/argument-hint}}
+---
+
+{{SHARED_BODY}}
+
+## Purpose
+
+{{PURPOSE}}
+
+## Triggers
+
+{{TRIGGERS}}
+
+## Behavior
+
+{{BEHAVIOR}}
+
+{{#ARGUMENT_PLACEHOLDER}}
+When this skill is invoked with the `distill` argument, it is delivered here as `{{ARGUMENT_PLACEHOLDER}}`.
+{{/ARGUMENT_PLACEHOLDER}}
+
+## Output
+
+{{OUTPUT}}

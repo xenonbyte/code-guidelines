@@ -1,0 +1,35 @@
+<!--
+  Rendered by src/build/platforms.mjs (PLAN-TASK-008) for the opencode "command" format
+  (SPEC-PLATFORM-001, SPEC-BUILD-001). opencode's registry.mjs frontmatter carries no structural
+  keys today, so only the universal `description` field is emitted here — same placeholder
+  contract as skill.md.tmpl: `description` is fragments.own['triggers.md'] trimmed (the verbatim
+  negative-invocation-guard sentence); SHARED_BODY / PURPOSE / TRIGGERS / BEHAVIOR / OUTPUT are
+  fragments.shared['body.md'] and fragments.own['purpose.md' | 'triggers.md' | 'behavior.md' |
+  'output.md'] verbatim; ARGUMENT_PLACEHOLDER is params.argumentPlaceholder verbatim (opencode
+  always sets one: $ARGUMENTS).
+-->
+---
+description: {{DESCRIPTION}}
+---
+
+{{SHARED_BODY}}
+
+## Purpose
+
+{{PURPOSE}}
+
+## Triggers
+
+{{TRIGGERS}}
+
+## Behavior
+
+{{BEHAVIOR}}
+
+{{#ARGUMENT_PLACEHOLDER}}
+When this command is invoked with the `distill` argument, it is delivered here as `{{ARGUMENT_PLACEHOLDER}}`.
+{{/ARGUMENT_PLACEHOLDER}}
+
+## Output
+
+{{OUTPUT}}
