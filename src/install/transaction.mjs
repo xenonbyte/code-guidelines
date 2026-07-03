@@ -55,7 +55,8 @@ function priorHashMap(priorManifest) {
  *   - it is installer-owned AND its disk content still matches the manifest record (our own
  *     unchanged file, safe to replace).
  * Everything else is a conflict: an installer-owned file the user edited, or a foreign unmarked
- * file whose content differs from what we would write.
+ * file whose content differs from what we would write. A non-file entry at the target path is also
+ * a conflict because rename would fail after earlier staged files had already been committed.
  */
 function classifyTarget(targetPath, desiredHash, priorMap) {
   let stat;
@@ -66,7 +67,12 @@ function classifyTarget(targetPath, desiredHash, priorMap) {
     if (err.code === 'ENOENT') return null; // fresh — nothing to protect
     throw err;
   }
-  if (!stat.isFile()) return null; // a directory (or other) at the path: not a file we would clobber
+  if (!stat.isFile()) {
+    return {
+      path: targetPath,
+      reason: 'non-file-target',
+    };
+  }
   const diskHash = sha256Normalized(readFileSync(targetPath));
   if (diskHash === desiredHash) return null; // already converged (idempotent reinstall / recovery)
   if (priorMap.has(targetPath) && priorMap.get(targetPath) === diskHash) return null; // own, unchanged

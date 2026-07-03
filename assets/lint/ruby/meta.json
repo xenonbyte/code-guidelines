@@ -1,6 +1,6 @@
 {
   "lang": "ruby",
-  "tools": ["rubocop"],
+  "tools": ["rubocop", "rubocop-performance", "rubocop-rspec"],
   "files": [".rubocop.yml"],
   "enforced": [
     "extensions are loaded via plugins: (RuboCop >=1.72), not the deprecated require: mechanism",
@@ -8,5 +8,5 @@
     "Style/FrozenStringLiteralComment, Style/StringLiterals, Metrics/MethodLength, Metrics/ClassLength, Metrics/AbcSize, and Layout/LineLength are machine-enforced",
     "Lint/UnusedMethodArgument and Lint/UnreachableCode catch dead/unreachable code"
   ],
-  "note": "plugins: requires the referenced gems (rubocop-performance, rubocop-rspec) to be present in the target project's Gemfile; this baseline does not install them (SCOPE-OUT-003)."
+  "note": "plugins: requires the referenced gems (rubocop-performance, rubocop-rspec); the sync report prints the full gem install hint but never installs them automatically (SCOPE-OUT-003)."
 }

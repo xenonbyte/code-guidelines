@@ -32,7 +32,7 @@ const FIXTURES = join(__dirname, 'fixtures');
 const LINT_BASELINE_ROOT = join(FIXTURES, 'lint-baseline'); // armLint's injected lint-root
 const BASELINE_FILE = join(LINT_BASELINE_ROOT, 'js-ts', 'eslint.config.js');
 const BASELINE_TEXT = readFileSync(BASELINE_FILE, 'utf8');
-const JS_TS_INSTALL_CMD = 'npm install -D eslint prettier typescript'; // SPEC-BASELINE-001, exact
+const JS_TS_INSTALL_CMD = 'npm install -D eslint prettier typescript typescript-eslint'; // SPEC-BASELINE-001, exact
 
 // ---------------------------------------------------------------------------------------------
 // Helpers
@@ -231,6 +231,26 @@ test('armLint: existing config via a HISTORICAL filename (.eslintrc.json) → al
     'historical config file left byte-for-byte unchanged',
   );
 });
+
+for (const [field, value] of [
+  ['eslintConfig', { rules: { eqeqeq: 'error' } }],
+  ['prettier', { semi: true }],
+]) {
+  test(`armLint: existing js-ts config via package.json "${field}" field → left untouched`, () => {
+    const repo = tmpDir('cg-lint-package-config-');
+    writeF(join(repo, 'package.json'), `${JSON.stringify({ name: 'pkg-config', [field]: value }, null, 2)}\n`);
+
+    const plan = armLint(DETECTED_JS, { lint: [] }, { repoRoot: repo, lintDir: LINT_BASELINE_ROOT, now: 'T0' });
+
+    assert.equal(plan.writes.length, 0, 'package.json tool config counts as already configured');
+    assert.equal(plan.nextLint.length, 0, 'no manifest record written for an existing package.json config');
+    const row = plan.status.find((r) => r.tool === 'js-ts');
+    assert.equal(row.armed, false);
+    assert.equal(row.gap, false);
+    assert.equal(existsSync(join(repo, 'eslint.config.js')), false, 'no eslint scaffold written');
+    assert.equal(existsSync(join(repo, '.prettierrc')), false, 'no prettier scaffold written');
+  });
+}
 
 // ---------------------------------------------------------------------------------------------
 // SPEC-LINT-001 — unmodified scaffold upgrades with a new library version; a user-modified

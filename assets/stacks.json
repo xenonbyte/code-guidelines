@@ -16,12 +16,13 @@
       "category": "语言",
       "specificity": 60,
       "detect": {
-        "files": [
-          "tsconfig.json"
-        ],
         "extensions": [
           {
             "ext": "ts",
+            "minCount": 1
+          },
+          {
+            "ext": "tsx",
             "minCount": 1
           }
         ]

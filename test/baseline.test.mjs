@@ -30,7 +30,7 @@ const EXPECTED_SETS = [
 // `contains` entries are literal substrings the file's raw content must include.
 const SET_REQUIREMENTS = {
   'js-ts': [
-    { file: 'eslint.config.mjs' },
+    { file: 'eslint.config.mjs', contains: ['typescript-eslint', '@typescript-eslint/no-unused-vars'] },
     { file: '.prettierrc' },
     { file: 'tsconfig.json', json: true, contains: ['noUncheckedIndexedAccess'] },
   ],

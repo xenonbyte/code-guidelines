@@ -84,10 +84,13 @@ const LINT_PROBE_FILES = {
   ruby: ['.rubocop.yml', '.rubocop.yaml'],
   cpp: ['.clang-format', '.clang-tidy', '_clang-format'],
 };
+const LINT_PROBE_PACKAGE_FIELDS = {
+  'js-ts': ['eslintConfig', 'prettier'],
+};
 
 // Exact install commands to print (deps are NEVER auto-installed, SPEC-LINT-001 / SCOPE-OUT-003).
 const LINT_INSTALL_CMD = {
-  'js-ts': 'npm install -D eslint prettier typescript',
+  'js-ts': 'npm install -D eslint prettier typescript typescript-eslint',
   python: 'pip install ruff mypy',
   go: 'go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest',
   rust: 'rustup component add clippy rustfmt',
@@ -96,7 +99,7 @@ const LINT_INSTALL_CMD = {
   swift: 'brew install swiftlint',
   csharp: 'enable Roslyn analyzers via <AnalysisLevel>latest-all</AnalysisLevel>',
   php: 'composer require --dev friendsofphp/php-cs-fixer phpstan/phpstan',
-  ruby: 'gem install rubocop',
+  ruby: 'gem install rubocop rubocop-performance rubocop-rspec',
   cpp: 'install clang-format and clang-tidy from LLVM',
 };
 const LINT_KEYS = new Set(Object.keys(LINT_PROBE_FILES));
@@ -187,13 +190,66 @@ function readIfExists(path) {
 }
 
 function loadTargetManifest(repoRoot) {
-  const raw = readIfExists(join(repoRoot, '.code-guidelines', 'manifest.json'));
+  const p = join(repoRoot, '.code-guidelines', 'manifest.json');
+  const raw = readIfExists(p);
   if (raw == null) return null;
+  let parsed;
   try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    const e = new Error(`target manifest is not valid JSON: ${p}`);
+    e.code = 'ERR_INVALID_TARGET_MANIFEST';
+    e.path = p;
+    e.cause = err;
+    throw e;
   }
+  if (!validateTargetManifest(parsed)) {
+    const e = new Error(`target manifest has an invalid shape: ${p}`);
+    e.code = 'ERR_INVALID_TARGET_MANIFEST';
+    e.path = p;
+    throw e;
+  }
+  return parsed;
+}
+
+function isPlainObject(v) {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isNonEmptyString(v) {
+  return typeof v === 'string' && v.length > 0;
+}
+
+function isValidRuleEntry(entry) {
+  return (
+    isPlainObject(entry) &&
+    isNonEmptyString(entry.file) &&
+    isNonEmptyString(entry.sourceVersion) &&
+    isNonEmptyString(entry.sha256)
+  );
+}
+
+function isValidLintEntry(entry) {
+  if (!isPlainObject(entry)) return false;
+  if (!isNonEmptyString(entry.tool)) return false;
+  if (!isNonEmptyString(entry.armedAt)) return false;
+  if (!(entry.sha256 === null || typeof entry.sha256 === 'string')) return false;
+  if ('optedOut' in entry && typeof entry.optedOut !== 'boolean') return false;
+  return true;
+}
+
+function isValidConventions(v) {
+  if (v === null) return true;
+  return isPlainObject(v) && isNonEmptyString(v.sha256) && isNonEmptyString(v.distilledAt);
+}
+
+function validateTargetManifest(o) {
+  if (!isPlainObject(o)) return false;
+  if (!isNonEmptyString(o.version)) return false;
+  if (!Array.isArray(o.rules) || !o.rules.every(isValidRuleEntry)) return false;
+  if (!Array.isArray(o.lint) || !o.lint.every(isValidLintEntry)) return false;
+  if (!('conventions' in o) || !isValidConventions(o.conventions)) return false;
+  return true;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -557,6 +613,23 @@ export function armLint(detected, manifest, ctx = {}) {
     for (const f of LINT_PROBE_FILES[tool] || []) {
       if (existsSync(join(repoRoot, f))) return true;
     }
+    const packageFields = LINT_PROBE_PACKAGE_FIELDS[tool] || [];
+    if (packageFields.length) {
+      const raw = readIfExists(join(repoRoot, 'package.json'));
+      if (raw != null) {
+        try {
+          const pkg = JSON.parse(raw);
+          if (
+            isPlainObject(pkg) &&
+            packageFields.some((field) => Object.prototype.hasOwnProperty.call(pkg, field))
+          ) {
+            return true;
+          }
+        } catch {
+          /* malformed package.json is not a readable tool config */
+        }
+      }
+    }
     return false;
   }
   function scheduleWrite(files) {
@@ -781,7 +854,15 @@ export function distillRecord(file, { force = false, repoRoot, now } = {}) {
     return { ok: false, exitCode: 2, reason: 'missing-conventions', path: conventionsPath };
   }
   const newHash = sha256Normalized(raw);
-  const manifest = loadTargetManifest(root) ?? { version: readVersion(), rules: [], lint: [], conventions: null };
+  let manifest;
+  try {
+    manifest = loadTargetManifest(root) ?? { version: readVersion(), rules: [], lint: [], conventions: null };
+  } catch (err) {
+    if (err.code === 'ERR_INVALID_TARGET_MANIFEST') {
+      return { ok: false, exitCode: 4, reason: 'invalid-manifest', path: err.path, message: err.message };
+    }
+    throw err;
+  }
   const prior = manifest.conventions;
 
   if (prior && prior.sha256 && prior.sha256 !== newHash && !force) {
@@ -862,12 +943,24 @@ export async function sync(opts = {}) {
   const { selected, truncated } = select(hits);
 
   // Step 4: load manifest.
-  const manifest = loadTargetManifest(repoRoot) ?? {
-    version: readVersion(assetRoot),
-    rules: [],
-    lint: [],
-    conventions: null,
-  };
+  let manifest;
+  try {
+    manifest = loadTargetManifest(repoRoot) ?? {
+      version: readVersion(assetRoot),
+      rules: [],
+      lint: [],
+      conventions: null,
+    };
+  } catch (err) {
+    if (err.code === 'ERR_INVALID_TARGET_MANIFEST') {
+      return finalize({
+        exitCode: 4,
+        message: `target manifest 不合法:${err.message},已中止且零写入`,
+        json,
+      });
+    }
+    throw err;
+  }
 
   // Step 5: reconcile (never touches conventions).
   const rulePlan = reconcile(selected, manifest, { repoRoot, assetRoot });
@@ -1086,6 +1179,8 @@ async function main() {
       );
     } else if (res.reason === 'missing-conventions') {
       process.stderr.write(`distill: conventions file not found: ${res.path}\n`);
+    } else if (res.reason === 'invalid-manifest') {
+      process.stderr.write(`distill: ${res.message}\n`);
     }
     process.exit(res.exitCode);
   }

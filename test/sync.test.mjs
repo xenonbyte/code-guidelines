@@ -162,6 +162,27 @@ test('detect: nested-only package.json (no root package.json) is aggregated by s
   assert.ok(ids.includes('a11y'), 'a11y resolves via the frontend tag emitted by nested vue detection');
 });
 
+test('detect: js-only repo with scaffolded tsconfig.json does NOT become TypeScript on rerun', () => {
+  const repo = tmpDir('cg-js-tsconfig-only-');
+  writeF(join(repo, 'package.json'), JSON.stringify({ name: 'plain-js' }));
+  writeF(join(repo, 'index.js'), 'module.exports = {};\n');
+  writeF(join(repo, 'lib', 'a.js'), 'exports.a = 1;\n');
+  writeF(join(repo, 'lib', 'b.js'), 'exports.b = 1;\n');
+  writeF(join(repo, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true } }));
+
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('javascript'), 'javascript still detected from real .js files');
+  assert.ok(!ids.includes('typescript'), 'tsconfig.json alone must not trigger the TypeScript stack');
+});
+
+test('detect: real tsx source file still detects TypeScript', () => {
+  const repo = tmpDir('cg-tsx-');
+  writeF(join(repo, 'src', 'App.tsx'), 'export function App() { return null; }\n');
+
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('typescript'), 'tsx source files trigger the TypeScript stack');
+});
+
 // ---------------------------------------------------------------------------------------------
 // SPEC-DETECT-001 — requiresTags is OR (Task-10 Fix Wave 1): security:["backend","frontend"]
 // applies to EITHER a backend-only or a frontend-only repo, not only a full-stack one.
@@ -319,6 +340,20 @@ test('armLint: fresh detect → arms scaffold + reports gap with install command
   assert.equal(row.armed, true);
   assert.equal(row.gap, true);
   assert.ok(row.installCmd && row.installCmd.includes('golangci-lint'));
+});
+
+test('armLint: ruby install command includes RuboCop plugin gems required by the scaffold', () => {
+  const assetRoot = buildAssetRoot({
+    lint: { ruby: { '.rubocop.yml': 'plugins:\n  - rubocop-performance\n  - rubocop-rspec\n' } },
+  });
+  const repo = tmpDir('cg-lint-ruby-');
+  const plan = armLint([{ id: 'ruby', lint: 'ruby' }], { lint: [] }, { repoRoot: repo, assetRoot, now: 'T0' });
+
+  const row = plan.status.find((r) => r.tool === 'ruby');
+  assert.equal(row.armed, true);
+  assert.equal(row.gap, true);
+  assert.ok(row.installCmd.includes('rubocop-performance'));
+  assert.ok(row.installCmd.includes('rubocop-rspec'));
 });
 
 test('armLint: existing config → untouched, no arm, no manifest record', () => {
@@ -565,6 +600,33 @@ test('sync: malformed host-block marker → exit 4, zero writes (host file bytes
     originalClaudeMd,
     'CLAUDE.md own bytes are byte-for-byte unchanged, not just .code-guidelines absent',
   );
+});
+
+test('sync: malformed target manifest → exit 4, existing .code-guidelines files are not overwritten', async () => {
+  const assetRoot = buildAssetRoot({ library: LIB, lint: { go: GO_LINT } });
+  const repo = goRepo();
+  const userRulePath = join(repo, '.code-guidelines', 'go.md');
+  const malformedManifestPath = targetManifestPath(repo);
+  writeF(userRulePath, '# go\nUSER EDIT THAT MUST SURVIVE\n');
+  writeF(malformedManifestPath, '{ not json');
+  const before = snapshotMtimes(repo);
+
+  const r = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
+
+  assert.equal(r.exitCode, 4);
+  assert.match(r.text, /manifest/);
+  assert.equal(
+    readFileSync(userRulePath, 'utf8'),
+    '# go\nUSER EDIT THAT MUST SURVIVE\n',
+    'existing rule file left byte-for-byte unchanged',
+  );
+  assert.equal(readFileSync(malformedManifestPath, 'utf8'), '{ not json', 'bad manifest left untouched');
+  assert.equal(existsSync(join(repo, '.golangci.yml')), false, 'lint scaffold not written after abort');
+  const after = snapshotMtimes(repo);
+  assert.deepEqual([...after.keys()].sort(), [...before.keys()].sort(), 'no files added/removed');
+  for (const [p, m] of before) {
+    assert.equal(after.get(p), m, `mtime unchanged: ${p}`);
+  }
 });
 
 test('sync: symlink at a write ancestor (.code-guidelines) → exit 4, zero writes', async () => {

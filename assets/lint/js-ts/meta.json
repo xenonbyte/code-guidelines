@@ -1,9 +1,10 @@
 {
   "lang": "js-ts",
-  "tools": ["eslint", "prettier", "typescript"],
+  "tools": ["eslint", "prettier", "typescript", "typescript-eslint"],
   "files": ["eslint.config.mjs", ".prettierrc", "tsconfig.json"],
   "enforced": [
     "ESLint flat config only (eslint.config.mjs, forced ESM regardless of the consuming project's package.json \"type\"); legacy .eslintrc* is not read by ESLint v10+",
+    "TypeScript files are parsed through typescript-eslint before TS-specific rules run",
     "eqeqeq, no-var, no-unused-vars, no-implicit-coercion, prefer-const are machine-enforced errors",
     "tsconfig strict: true (full strict-mode bundle)",
     "tsconfig noUncheckedIndexedAccess: true — indexed array/object access is typed as possibly undefined",

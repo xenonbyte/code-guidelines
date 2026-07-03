@@ -235,6 +235,38 @@ test('install: a foreign unmarked file at a target aborts with exit 4 and writes
   }
 });
 
+test('transaction: a directory at any desired target is a preflight conflict with zero writes', async () => {
+  const home = makeTmpHome();
+  try {
+    const cfg = resolveConfig({ home });
+    const firstPath = join(cfg.sharedRoot, 'library', 'first.md');
+    const directoryTarget = join(cfg.platformRoots.codex, PLATFORM_PRODUCT_FILE.codex);
+    mkdirSync(directoryTarget, { recursive: true });
+
+    const result = await runInstallTransaction({
+      desired: [
+        { targetPath: firstPath, content: 'first\n' },
+        { targetPath: directoryTarget, content: 'codex product\n', skill: 'code-guidelines', platform: 'codex' },
+      ],
+      allowedRoots: cfg.allowedRoots,
+      priorManifest: null,
+      manifestPath: cfg.manifestPath,
+      manifestMeta: { version: '0.1.0', skills: ['code-guidelines'], platforms: ['codex'] },
+    });
+
+    assert.equal(result.exitCode, 4);
+    assert.deepEqual(result.written, [], 'no staged file was renamed into place');
+    assert.equal(result.conflicts.length, 1);
+    assert.equal(result.conflicts[0].path, directoryTarget);
+    assert.equal(result.conflicts[0].reason, 'non-file-target');
+    assert.equal(existsSync(firstPath), false, 'earlier desired file was not partially installed');
+    assert.ok(statSync(directoryTarget).isDirectory(), 'directory target was left intact');
+    assert.equal(existsSync(cfg.manifestPath), false, 'manifest not written on preflight conflict');
+  } finally {
+    cleanup(home);
+  }
+});
+
 // ---- symlink target / ancestor rejected with exit 4, zero change ---------------------------
 
 test('install: a symlink AT a target aborts with exit 4 and zero disk change', async () => {
