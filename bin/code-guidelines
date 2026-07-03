@@ -1,0 +1,5 @@
+#!/usr/bin/env node
+import { main } from '../src/cli.mjs';
+
+const returnCode = await main(process.argv.slice(2));
+process.exit(returnCode);
