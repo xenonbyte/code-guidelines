@@ -220,3 +220,26 @@ test('every non-null lint value is one of the 11 baseline keys', () => {
     }
   }
 });
+
+test('every requiresTags value is emitted by at least one stack\'s tags (SPEC-DETECT-001 two-pass)', () => {
+  const { stacks } = loadStacks();
+  const emittedTags = new Set();
+  for (const stack of stacks) {
+    const detect = stack.detect;
+    if (detect && Array.isArray(detect.tags)) {
+      for (const t of detect.tags) emittedTags.add(t);
+    }
+  }
+  for (const stack of stacks) {
+    const detect = stack.detect;
+    if (detect && Array.isArray(detect.requiresTags)) {
+      for (const t of detect.requiresTags) {
+        assert.ok(
+          emittedTags.has(t),
+          `${stack.id}: requiresTags '${t}' is never emitted by any stack's tags — ` +
+            'SPEC-DETECT-001 two-pass predicate can never resolve',
+        );
+      }
+    }
+  }
+});
