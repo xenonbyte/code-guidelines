@@ -1,7 +1,7 @@
 ---
 name: node-api
 description: Semantic guardrails for Node.js API servers (Express/Fastify/NestJS) around the event loop, request handling, and process safety.
-appliesTo: ["**/routes/**/*.js", "**/routes/**/*.ts", "**/controllers/**/*.js", "**/controllers/**/*.ts", "**/server.js", "**/server.ts"]
+appliesTo: ["**/routes/**/*.js", "**/routes/**/*.ts", "**/controllers/**/*.js", "**/controllers/**/*.ts", "**/server.js", "**/server.ts", "**/middleware/**", "**/*.middleware.*"]
 stacks: ["node-api", "backend"]
 source: original
 ---

@@ -1,7 +1,7 @@
 ---
 name: django
 description: Semantic Django guardrails for the ORM, the request trust boundary, and query performance beyond what ruff/mypy enforce mechanically.
-appliesTo: ["**/*.py", "**/models.py", "**/views.py"]
+appliesTo: ["**/models.py", "**/views.py", "**/serializers.py", "**/urls.py", "**/settings.py", "**/admin.py", "**/forms.py"]
 stacks: ["django", "backend"]
 source: original
 ---

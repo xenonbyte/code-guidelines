@@ -1,7 +1,7 @@
 ---
 name: mongodb
 description: Semantic MongoDB guardrails for query injection safety, schema design, and index-aware access patterns.
-appliesTo: ["**/models/**/*.js", "**/models/**/*.ts", "**/schemas/**/*.js", "**/schemas/**/*.ts"]
+appliesTo: ["**/models/**/*.js", "**/models/**/*.ts", "**/schemas/**/*.js", "**/schemas/**/*.ts", "**/repositories/**", "**/*.repository.*", "**/db/**", "**/dao/**"]
 stacks: ["mongodb"]
 source: original
 ---

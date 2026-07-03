@@ -1,7 +1,7 @@
 ---
 name: graphql
 description: Semantic GraphQL guardrails for query cost, N+1 avoidance, and field-level authorization.
-appliesTo: ["**/*.graphql", "**/*.gql"]
+appliesTo: ["**/*.graphql", "**/*.gql", "**/*.resolver.ts", "**/*.resolver.js", "**/resolvers/**", "**/schema.ts", "**/schema.js"]
 stacks: ["graphql", "backend"]
 source: original
 ---
