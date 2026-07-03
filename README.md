@@ -6,8 +6,8 @@ installed, the skill can detect a target repository's tech stack, keep a curated
 rules and lint baselines in sync inside that repository, and (on request) distill the repository's
 own real conventions into a project-specific guardrail file.
 
-See `README.zh-CN.md` for the Simplified Chinese version of this document (aligned section by
-section with this one).
+See [README.zh-CN.md](README.zh-CN.md) for the Simplified Chinese version of this document (aligned
+section by section with this one).
 
 ## Overview
 
