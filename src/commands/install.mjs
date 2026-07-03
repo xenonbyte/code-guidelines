@@ -10,23 +10,32 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadManifest, validateInstallManifest, INSTALL_PLATFORMS } from '../install/manifest.mjs';
 import { runInstallTransaction, EXIT_CONFLICT } from '../install/transaction.mjs';
+import { REGISTRY } from '../build/registry.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..');
 export const SKILL_NAME = 'code-guidelines';
 
+const SKILL_DEF = REGISTRY.find((s) => s.id === SKILL_NAME);
+if (!SKILL_DEF) {
+  throw new Error(`install.mjs: no registry.mjs entry found for skill "${SKILL_NAME}"`);
+}
+
 /**
- * The on-disk product file name each platform installs, per SPEC-PLATFORM-001. Used both to
- * find the built product under `generated/<platform>/` and to place it under the platform root.
- * (Kept for reference / single-file platforms; the default gatherer mirrors the whole
- * generated/<platform>/ subtree so multi-file skills also work.)
+ * The on-disk product file name each platform installs, per SPEC-PLATFORM-001. Derived directly
+ * from src/build/registry.mjs's per-platform `generatedFile` (PLAN-TASK-008 reconciliation: this
+ * used to be a second, independently hand-maintained copy of the same filenames — registry.mjs is
+ * now the single source of truth, so the two can never drift apart). Used both to find the built
+ * product under `generated/<platform>/` and to place it under the platform root; also referenced
+ * by test fixtures (test/install.test.mjs). (Kept for reference / single-file platforms; the
+ * default gatherer below mirrors the whole generated/<platform>/ subtree so multi-file skills
+ * also work without consulting this map.)
  */
-export const PLATFORM_PRODUCT_FILE = Object.freeze({
-  claude: 'SKILL.md',
-  codex: 'code-guidelines.md',
-  opencode: 'code-guidelines.md',
-  gemini: 'code-guidelines.toml',
-});
+export const PLATFORM_PRODUCT_FILE = Object.freeze(
+  Object.fromEntries(
+    Object.entries(SKILL_DEF.platforms).map(([platform, params]) => [platform, params.generatedFile])
+  )
+);
 
 /**
  * Resolve every install path from an injectable home + env (SPEC-PLATFORM-001).

@@ -14,6 +14,11 @@
 export const REGISTRY = [
   {
     id: 'code-guidelines',
+    // Directory under fragments/ holding this skill's per-section prose (purpose/triggers/
+    // behavior/output.md) — kept as an explicit field, separate from `id`, so the registry (not
+    // a filesystem-naming coincidence) is the single source of truth build.mjs's readFragments()
+    // uses to locate them (PLAN-TASK-008 reconciliation with fragments/skill/*).
+    fragmentsDir: 'skill',
     platforms: {
       claude: {
         format: 'markdown',

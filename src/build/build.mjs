@@ -12,7 +12,7 @@
 // `await import('./platforms.mjs')`) — never at module-load time — so importing this module never
 // throws for their absence.
 import { mkdir, readdir, readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { atomicWrite } from '../install/fsutil.mjs';
 import { REGISTRY } from './registry.mjs';
@@ -86,12 +86,15 @@ async function readFragmentDir(dir) {
 
 /**
  * Gather the fragment set a skill's platform emitters need: its own per-section fragments
- * (fragments/<skillId>/*) plus the shared cross-skill fragments (fragments/shared/*), both
- * sorted by file name for deterministic composition.
+ * (fragments/<fragmentsDir>/*) plus the shared cross-skill fragments (fragments/shared/*), both
+ * sorted by file name for deterministic composition. `fragmentsDir` is the skill's own directory
+ * name under fragments/ (registry.mjs's `fragmentsDir` field — PLAN-TASK-007 landed its fragments
+ * at fragments/skill/*, not fragments/<id>/*, so this is driven by that explicit field rather
+ * than assumed to equal the skill id).
  */
-async function readFragments(skillId) {
+async function readFragments(fragmentsDir) {
   const [own, shared] = await Promise.all([
-    readFragmentDir(join(FRAGMENTS_DIR, skillId)),
+    readFragmentDir(join(FRAGMENTS_DIR, fragmentsDir)),
     readFragmentDir(join(FRAGMENTS_DIR, 'shared')),
   ]);
   return { own, shared };
@@ -116,7 +119,7 @@ export async function build({ check = false } = {}) {
   const results = [];
 
   for (const skill of REGISTRY) {
-    const fragments = await readFragments(skill.id);
+    const fragments = await readFragments(skill.fragmentsDir ?? skill.id);
     for (const [platform, params] of Object.entries(skill.platforms)) {
       const rendered = normalizeEol(emitPlatform({ skill, platform, params, fragments }));
       const outPath = join(GENERATED_DIR, platform, params.generatedFile);
@@ -149,4 +152,24 @@ export async function build({ check = false } = {}) {
   }
 
   return results;
+}
+
+// CLI entrypoint: `node src/build/build.mjs [--check]` — the `build` script in package.json and
+// the SPEC-BUILD-001 self-conformance gate (PLAN-TASK-008 Verification). Guarded so importing
+// this module (e.g. from test/build.test.mjs and test/platform.test.mjs) never runs a build or
+// calls process.exit as a side effect of the import — it only fires when this file is the
+// directly-executed script.
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  const check = process.argv.includes('--check');
+  try {
+    const results = await build({ check });
+    console.log(
+      check
+        ? `build --check: OK — ${results.length} artifact(s) match generated/.`
+        : `build: wrote ${results.length} artifact(s) to generated/.`
+    );
+  } catch (err) {
+    console.error(err.message);
+    process.exitCode = 1;
+  }
 }
