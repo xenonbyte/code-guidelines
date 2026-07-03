@@ -142,6 +142,7 @@ when to type it — and, just as importantly, when not to.
 | Situation | Action | Why |
 |---|---|---|
 | Routine day-to-day sync, or right after adding/removing a stack dependency | Type `/code-guidelines` (no arguments) | Re-detects the stack and reconciles rules/lint deterministically; safe to run as often as you like — a no-op run writes nothing |
+| Starting a brand-new (greenfield) project with no code yet | Type `/code-guidelines` now for universal + per-stack guardrails and lint from day one; run `/code-guidelines distill` later, once a few real files exist, to capture the conventions that emerge | An empty repo has nothing to distill — the guardrail library and lint baselines apply immediately; project-specific conventions can only firm up once there is code to evidence them |
 | Onboarding an existing codebase that already has real conventions worth capturing | Type `/code-guidelines distill` once | One-time, evidence-gated extraction of this repo's actual patterns into `project-conventions.md` |
 | After a large refactor changed real conventions on purpose | Manually re-run `/code-guidelines distill --force` (or delete `project-conventions.md` first) | Distillation never happens automatically; a stale `project-conventions.md` is reported as a fact, not auto-refreshed |
 | You want lint enforcement to start on a stack that has no config yet | Nothing extra — it happens automatically inside the plain `/code-guidelines` run | Lint first-arm is part of the no-argument pipeline, not a separate invocation |

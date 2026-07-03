@@ -128,6 +128,7 @@ code-guidelines install --platform claude,codex
 | 场景 | 该怎么做 | 原因 |
 |---|---|---|
 | 日常例行同步,或刚新增/移除了某个技术栈依赖之后 | 键入 `/code-guidelines`(不带参数) | 确定性地重新检测技术栈并调和规则/lint;可放心频繁运行——无变化的一次运行不写任何文件 |
+| 从零开始一个全新(greenfield)项目、尚无代码 | 现在就键入 `/code-guidelines`,从第一天起获得通用 + 按栈守卫与 lint;等写了几个真实文件后,再运行 `/code-guidelines distill`,沉淀逐渐成形的约定 | 空仓库没有可蒸馏的东西——规则库与 lint 基线立即生效;项目专属约定只有在有代码可作证据后才能固化 |
 | 接手一个已有真实约定值得沉淀的存量代码库 | 键入一次 `/code-guidelines distill` | 一次性、有证据门槛的提炼,把本仓库真实惯例写入 `project-conventions.md` |
 | 一次大重构之后,项目约定发生了有意的变化 | 手动重新运行 `/code-guidelines distill --force`(或先删除 `project-conventions.md`) | 蒸馏永不自动发生;过期的 `project-conventions.md` 只会被如实报告,不会被自动刷新 |
 | 想让某个尚无配置的技术栈开始接受 lint 约束 | 无需额外操作——无参 `/code-guidelines` 运行内会自动完成 | lint 首次布防是无参管线的一部分,不是单独的调用 |
