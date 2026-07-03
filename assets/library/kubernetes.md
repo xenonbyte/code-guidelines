@@ -1,7 +1,7 @@
 ---
 name: kubernetes
 description: Semantic Kubernetes manifest guardrails for reliability, security, and safe rollouts.
-appliesTo: ["**/*.yaml", "**/k8s/**", "**/manifests/**"]
+appliesTo: ["**/k8s/**", "**/manifests/**", "**/kustomization.yaml", "**/charts/**/templates/**", "**/*deployment*.yaml", "**/*service*.yaml", "**/*ingress*.yaml", "**/*configmap*.yaml"]
 stacks: ["kubernetes"]
 source: original
 ---
