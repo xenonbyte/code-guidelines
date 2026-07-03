@@ -281,6 +281,48 @@ test('install: a symlink ANCESTOR within an allowed root aborts with exit 4 and 
   }
 });
 
+// ---- corrupt/invalid existing install-manifest aborts install with exit 2 (SPEC-CLI-001) ---
+
+test('install: exit 2 when the existing install manifest is not valid JSON, and writes nothing', async () => {
+  const home = makeTmpHome();
+  try {
+    const cfg = resolveConfig({ home });
+    mkdirSync(cfg.sharedRoot, { recursive: true });
+    writeFileSync(cfg.manifestPath, '{ not json');
+    const before = readFileSync(cfg.manifestPath, 'utf8');
+
+    const { rc } = await captureConsole(() =>
+      install(['claude'], { home, sources: makeSources(cfg, ['claude']) })
+    );
+    assert.equal(rc, 2);
+    assert.ok(!existsSync(join(cfg.platformRoots.claude, 'SKILL.md')), 'no product written');
+    assert.ok(!existsSync(join(cfg.sharedRoot, 'library', 'core.md')), 'no shared asset written');
+    assert.equal(readFileSync(cfg.manifestPath, 'utf8'), before, 'corrupt manifest left untouched');
+  } finally {
+    cleanup(home);
+  }
+});
+
+test('install: exit 2 when the existing install manifest has an invalid shape, and writes nothing', async () => {
+  const home = makeTmpHome();
+  try {
+    const cfg = resolveConfig({ home });
+    mkdirSync(cfg.sharedRoot, { recursive: true });
+    writeFileSync(cfg.manifestPath, JSON.stringify({ version: '1' })); // missing required keys
+    const before = readFileSync(cfg.manifestPath, 'utf8');
+
+    const { rc } = await captureConsole(() =>
+      install(['claude'], { home, sources: makeSources(cfg, ['claude']) })
+    );
+    assert.equal(rc, 2);
+    assert.ok(!existsSync(join(cfg.platformRoots.claude, 'SKILL.md')), 'no product written');
+    assert.ok(!existsSync(join(cfg.sharedRoot, 'library', 'core.md')), 'no shared asset written');
+    assert.equal(readFileSync(cfg.manifestPath, 'utf8'), before, 'invalid-shape manifest left untouched');
+  } finally {
+    cleanup(home);
+  }
+});
+
 // ---- uninstall clears manifest + empty root ------------------------------------------------
 
 test('uninstall: removes all owned files, the manifest, and the now-empty shared root', async () => {

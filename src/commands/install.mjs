@@ -8,7 +8,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadManifest, INSTALL_PLATFORMS } from '../install/manifest.mjs';
+import { loadManifest, validateInstallManifest, INSTALL_PLATFORMS } from '../install/manifest.mjs';
 import { runInstallTransaction, EXIT_CONFLICT } from '../install/transaction.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -124,13 +124,17 @@ export async function gatherDefaultSources(platforms, cfg) {
  * `install [--platform <csv>]` — SPEC-INSTALL-001 two-phase commit.
  * @param {string[]} platforms  resolved platform list (defaults to all four via the CLI parser)
  * @param {object} [options]  { home, env, sources } — `sources` injects a fixture desired set.
- * @returns {Promise<number>} exit code (0 success, 4 conflict/fs-safety abort, 1 unexpected).
+ * @returns {Promise<number>} exit code (0 success, 2 corrupt/invalid-shape existing manifest,
+ *   4 conflict/fs-safety abort, 1 generic internal/precondition error outside SPEC-CLI-001's set).
  */
 export async function install(platforms, options = {}) {
   const cfg = resolveConfig(options);
   const desired = options.sources ?? (await gatherDefaultSources(platforms, cfg));
 
   if (desired.length === 0) {
+    // Generic precondition failure (dev-only: nothing has been built yet). SPEC-CLI-001's
+    // install exit-code set (0/2/3/4) has no enumerated code for this "not built yet" case, so
+    // exit 1 is used as a generic internal/precondition error, intentionally outside that set.
     console.error(
       'install: no source artifacts found under assets/ or generated/. Build the project first.'
     );
@@ -142,10 +146,19 @@ export async function install(platforms, options = {}) {
     priorManifest = await loadManifest(cfg.manifestPath);
   } catch (err) {
     if (err.code !== 'ENOENT') {
-      // A corrupt/unreadable manifest is a real problem; surface it rather than guessing.
+      // A present-but-corrupt/unparseable existing manifest is a "manifest 形状不合法" case per
+      // SPEC-CLI-001, not a generic failure — exit 2, consistent with `status`'s invalid-manifest
+      // handling. A genuinely-absent manifest (ENOENT, fresh install) is NOT an error and falls
+      // through with priorManifest left null.
       console.error(`install: cannot read existing install manifest: ${err.message}`);
-      return 1;
+      return 2;
     }
+  }
+
+  if (priorManifest !== null && !validateInstallManifest(priorManifest)) {
+    // Valid JSON but the wrong shape is still "manifest 形状不合法" (SPEC-CLI-001) — exit 2.
+    console.error(`install: existing install manifest at ${cfg.manifestPath} has an invalid shape.`);
+    return 2;
   }
 
   const manifestMeta = {
@@ -164,7 +177,10 @@ export async function install(platforms, options = {}) {
       manifestMeta,
     });
   } catch (err) {
-    // Pre-commit staging failure: staging was discarded, the original install is untouched.
+    // Pre-commit staging failure (unexpected fs error mid-stage): staging was discarded, the
+    // original install is untouched. Accepted as a generic internal error, intentionally outside
+    // SPEC-CLI-001's closed install exit-code set (0/2/3/4) — there is no enumerated code for an
+    // unclassified I/O failure during staging.
     console.error(`install: aborted, no changes made: ${err.message}`);
     return 1;
   }
