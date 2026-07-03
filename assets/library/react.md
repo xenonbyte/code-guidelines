@@ -15,6 +15,9 @@ source: original
 - MUST NOT use array index as `key` for lists that can reorder, insert, or delete items.
 - MUST NOT call hooks conditionally or inside loops — hook call order must stay identical across renders.
 - MUST NOT store server-only secrets, API keys, or tokens in component state or props that reach the client bundle.
+- MUST NOT read or write a ref's `.current` during rendering — only in effects or event handlers; use state if a value must affect render output.
+- MUST NOT leave async work started in an effect (data fetching, timers) unguarded against stale/out-of-order results — track staleness with a cleanup flag or `AbortController` in the effect's cleanup.
+- MUST NOT run side effects (network calls, external mutation, non-idempotent logic) in the render body — components and hooks must be pure and idempotent for the same props/state/context.
 
 ## Ecosystem Idioms & Conventions
 

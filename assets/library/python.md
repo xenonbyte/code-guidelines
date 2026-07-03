@@ -15,6 +15,10 @@ source: original
 - MUST NOT use `assert` for runtime input validation on production code paths; assertions are stripped under `-O`.
 - MUST NOT shadow builtins (`list`, `dict`, `id`, `type`) as variable or parameter names.
 - MUST NOT perform blocking I/O inside an `async def` function without an async-safe wrapper.
+- MUST NOT call `subprocess` with `shell=True` (or otherwise assemble a shell command string) from untrusted/external input; pass an argument list and avoid the shell.
+- MUST NOT `eval`/`exec` untrusted or externally-influenced input; use `ast.literal_eval` for parsing literals.
+- MUST NOT `pickle.load` or `yaml.load` (default Loader) data from an untrusted source; use `yaml.safe_load` or a safe format.
+- MUST NOT build a filesystem path from user-controlled input without validating/normalizing it against an allowed base directory (path traversal).
 
 ## Ecosystem Idioms & Conventions
 

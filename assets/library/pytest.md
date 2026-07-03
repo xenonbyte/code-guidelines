@@ -15,6 +15,8 @@ source: original
 - MUST NOT catch and discard an exception inside a test with a bare `except: pass` to avoid a failure - let it propagate, or assert on it explicitly with `pytest.raises`.
 - MUST NOT hit a real network endpoint, a real filesystem path outside a temp fixture (`tmp_path`), or a real database in a unit test - use a fixture/mock/test double for out-of-process dependencies.
 - MUST NOT write a test that exercises more than one behavior per function - split into separate `test_` functions so a failure pinpoints exactly what broke.
+- MUST NOT depend on real wall-clock time or `time.sleep` in a test - inject or monkeypatch the clock so timing is deterministic.
+- MUST NOT verify an outcome with `print()`/manual output inspection instead of an `assert` - only assertions produce a pass/fail signal and failure introspection.
 
 ## Ecosystem Idioms & Conventions
 

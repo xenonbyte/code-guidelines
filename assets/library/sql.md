@@ -15,6 +15,11 @@ source: original
 - MUST NOT perform a multi-statement write that must be all-or-nothing outside an explicit transaction (`BEGIN`/`COMMIT`/`ROLLBACK`).
 - MUST NOT run an unbounded `UPDATE`/`DELETE` without a `WHERE` clause scoping it to the intended rows.
 - MUST NOT add a foreign key or unique constraint to a large existing table without considering its lock/validation cost, or skip it entirely because it "should" be enforced only in application code.
+- MUST NOT connect the application under a DBA/admin/superuser database account - grant each app account only the privileges it needs.
+- MUST NOT assume wrapping writes in a transaction alone prevents lost updates - choose an isolation level or explicit locking (`SELECT ... FOR UPDATE`) sufficient for the invariant.
+- MUST NOT issue a query per row inside an application loop when one set-based join/batch query suffices (the N+1 antipattern).
+- MUST NOT compare against `NULL` with `=`/`!=`/`NOT IN` expecting normal boolean results - use `IS NULL`/`IS NOT NULL`/`COALESCE` (NULL is three-valued `unknown`).
+- MUST NOT rely on row-return order without an explicit `ORDER BY` - SQL specifies no default ordering.
 
 ## Ecosystem Idioms & Conventions
 

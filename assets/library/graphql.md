@@ -15,6 +15,9 @@ source: original
 - MUST NOT perform authorization only at the top-level query/mutation and skip it on nested fields that return sensitive data - check authorization at the field/type level where the data is actually resolved.
 - MUST NOT return raw internal error messages or stack traces in the `errors` array of a production response.
 - MUST NOT let a mutation resolver perform a non-idempotent side effect without input validation equivalent to a REST endpoint's.
+- MUST NOT leave schema introspection enabled in a production or publicly accessible environment.
+- MUST NOT expose GraphiQL or other schema-exploration tooling in production.
+- MUST NOT rely on depth/complexity limits alone - also cap query batching and repeated-alias multiplication, which can bypass naive cost checks.
 
 ## Ecosystem Idioms & Conventions
 

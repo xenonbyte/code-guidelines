@@ -15,6 +15,9 @@ source: original
 - MUST NOT use `$where` or JavaScript-evaluated expressions with request-derived strings - they execute arbitrary logic server-side.
 - MUST NOT rely on multi-document writes being atomic without an explicit multi-document transaction when the operation must be all-or-nothing.
 - MUST NOT grow an array field unbounded inside a single document (e.g. appending every event forever) - documents have a 16MB size limit and unbounded arrays degrade update performance well before that.
+- MUST NOT connect the application under an admin/root Mongo user - assign each app user only the roles it needs.
+- MUST NOT pass user-controlled input into `$expr`, `$function`, `$accumulator`, or `mapReduce` - like `$where`, these evaluate logic server-side and widen the injection surface.
+- MUST NOT rely on default read/write concern where read-after-write or cross-node consistency matters - use `majority` read and write concern for those operations.
 
 ## Ecosystem Idioms & Conventions
 

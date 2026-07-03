@@ -15,6 +15,9 @@ source: original
 - MUST NOT use `@State` for data that must survive beyond the view's lifetime or be shared across views — use `@StateObject`/`@ObservedObject`/`@EnvironmentObject` with an owning model instead.
 - MUST NOT create or own an `@ObservedObject` inside a view — it has no storage ownership and gets reconstructed on redraw; use `@StateObject` for objects the view creates (inline initialization is correct there), and reserve `@ObservedObject` only for objects owned by and passed in from a parent.
 - MUST NOT block the main thread with synchronous heavy work triggered from a view; use structured concurrency (`async`/`await`, `Task`) off the main actor.
+- MUST NOT bind into an `@Observable` model through `@ObservedObject`/`@StateObject` framing — use `@Bindable` for two-way bindings to Observation-macro types.
+- MUST NOT use a non-stable or index-based `id` in `ForEach` over mutable/reorderable data — rows must be `Identifiable` or keyed by a stable unique id.
+- MUST NOT launch view-scoped async work with a manual `Task {}` in `onAppear` — use `.task`/`.task(id:)` so SwiftUI cancels it on disappear or identity change.
 
 ## Ecosystem Idioms & Conventions
 

@@ -15,6 +15,8 @@ source: original
 - MUST NOT discard an error from a `throws` function with `try?` when the failure needs to be surfaced.
 - MUST NOT mutate shared mutable state from multiple concurrency domains without actor isolation or synchronization.
 - MUST NOT use implicitly unwrapped optionals (`Type!`) for properties whose nil-ness is a normal, expected state.
+- MUST NOT pass a non-`Sendable` value across an actor/task isolation boundary; make the type `Sendable`, use a `sending` parameter, or isolate the whole function.
+- MUST NOT force `Sendable` conformance onto a type that only ever touches actor-owned or UI state; isolate the code (e.g. `@MainActor`) instead.
 
 ## Ecosystem Idioms & Conventions
 

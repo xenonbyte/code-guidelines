@@ -16,6 +16,10 @@ source: original
 - MUST NOT disable CSRF protection (`@csrf_exempt`) on a state-changing view without an equivalent auth mechanism (e.g. a verified API token) replacing it.
 - MUST NOT store secrets (`SECRET_KEY`, DB passwords, API keys) in `settings.py` as literals - load them from environment.
 - MUST NOT assume a `QuerySet` result persists a mutation without calling `.save()`/`.update()` - model field changes do not auto-persist.
+- MUST NOT deploy with `DEBUG = True` in production - it leaks source excerpts, settings, and local variables in error pages.
+- MUST NOT leave `ALLOWED_HOSTS` empty/wildcard in production, or read the host from `request.META['HTTP_HOST']` directly - both bypass Host-header validation.
+- MUST NOT disable clickjacking protection (`XFrameOptionsMiddleware` / `X_FRAME_OPTIONS`) without a scoped, documented reason.
+- MUST NOT set `fields = "__all__"` or use `exclude` on a `ModelForm`/serializer `Meta` - list `fields` explicitly so a newly added model field is not silently mass-assignable.
 
 ## Ecosystem Idioms & Conventions
 
