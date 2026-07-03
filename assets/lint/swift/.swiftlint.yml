@@ -7,8 +7,6 @@ only_rules:
   - line_length
   - identifier_name
   - type_name
-  - unused_import
-  - unused_declaration
   - unused_closure_parameter
   - empty_count
   - empty_string
@@ -19,6 +17,11 @@ only_rules:
   - colon
   - comma
   - control_statement
+
+# Analyzer-only rules: require `swiftlint analyze` (with a compilation log), not plain `swiftlint lint`.
+analyzer_rules:
+  - unused_import
+  - unused_declaration
 
 line_length:
   warning: 120

@@ -6,7 +6,7 @@
     "only_rules is used (current, non-deprecated) instead of the removed whitelist_rules key",
     "force_cast, force_try, force_unwrapping, and implicitly_unwrapped_optional are machine-enforced to catch unsafe runtime-crash patterns",
     "line_length (warning 120 / error 200), identifier_name, and type_name bounds are machine-enforced style",
-    "unused_import, unused_declaration, and unused_closure_parameter catch dead code",
+    "unused_closure_parameter (only_rules) catches dead closure parameters under plain `swiftlint lint`; unused_import and unused_declaration also catch dead code but are analyzer-only rules configured under analyzer_rules and require `swiftlint analyze` (with a compilation log), not plain `swiftlint lint`",
     "trailing_whitespace, trailing_newline, vertical_whitespace, closure_spacing, colon, and comma are machine-enforced formatting"
   ]
 }
