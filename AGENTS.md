@@ -57,7 +57,7 @@ are all executable; fixtures pin detection/sync golden behavior.
 `src/build/registry.mjs` is the single source of truth for each platform's output filename — both
 the build output and the installer's product-file map derive from it so they cannot drift.
 
-### Detection predicates (the key mechanism in runtime sync)
+### Detection predicates
 
 The runtime sync engine in `assets/sync.mjs` evaluates stacks using five predicate types:
 **files**, **packageDeps**, **extensions**, **requiresTags**, **pythonDeps**. See the `detect` logic
