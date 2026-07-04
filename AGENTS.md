@@ -7,7 +7,7 @@ not applied to this codebase.
 
 ## Commands
 
-- Tests: `npm test` (i.e. `node --test`, auto-discovers `test/*.test.mjs`). 267 tests, all must pass.
+- Tests: `npm test` (i.e. `node --test`, auto-discovers `test/*.test.mjs`). 275 tests, all must pass.
   - Single file: `node --test test/library.test.mjs`
   - By name: `node --test --test-name-pattern="57"`
 - Build (regenerate checked-in output): `npm run build` (`node src/build/build.mjs`)

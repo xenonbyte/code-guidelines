@@ -17,7 +17,7 @@ hard product constraint (see `assets/sync.mjs` header), not an accident. Do not 
 ## Commands
 
 ```sh
-node --test                       # run the whole suite (267 tests, node:test — no framework)
+node --test                       # run the whole suite (275 tests, node:test — no framework)
 node --test test/sync.test.mjs    # run one test file
 node --test --test-name-pattern "zero-write"   # run tests matching a name
 npm run build                     # regenerate generated/ from fragments/ + registry.mjs
