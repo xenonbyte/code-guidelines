@@ -1,7 +1,7 @@
 ---
 name: web-perf
 description: Cross-cutting web performance guardrails aligned to Core Web Vitals (LCP, INP, CLS), independent of any one frontend framework.
-appliesTo: ["**/*.tsx", "**/*.jsx", "**/*.vue", "**/*.html", "**/*.svelte"]
+appliesTo: ["**/*.tsx", "**/*.jsx", "**/*.vue", "**/*.html", "**/*.svelte", "**/*.astro", "**/*.razor"]
 stacks: ["web-perf", "frontend"]
 source: original
 ---

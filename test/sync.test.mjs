@@ -140,6 +140,19 @@ test('detect: excluded dirs (node_modules/dist/…) are NOT scanned', () => {
   assert.deepEqual(hits, [], 'nothing detected — all matches were inside excluded dirs');
 });
 
+test('detect: source directories named env/ENV are scanned unless they are Python virtualenvs', () => {
+  const repo = tmpDir('cg-env-source-');
+  writeF(join(repo, 'env', 'prod', 'main.tf'), 'resource "null_resource" "x" {}\n');
+  writeF(join(repo, 'packages', 'ENV', 'package.json'), JSON.stringify({ dependencies: { vue: '^3.4.0' } }));
+  writeF(join(repo, 'tools', 'env', 'pyvenv.cfg'), 'home = /usr/bin\n');
+  writeF(join(repo, 'tools', 'env', 'bin', 'activate_this.py'), 'print("venv helper")\n');
+
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('terraform'), 'Terraform source under env/ must participate in detection');
+  assert.ok(ids.includes('vue'), 'package.json under ENV/ must participate in detection');
+  assert.ok(!ids.includes('python'), 'a directory named env with pyvenv.cfg is still treated as a virtualenv');
+});
+
 test('detect: files predicate treats a DIRECTORY as existing (github-actions → .github/workflows)', () => {
   const repo = tmpDir('cg-gha-');
   mkdirSync(join(repo, '.github', 'workflows'), { recursive: true });
@@ -214,7 +227,7 @@ for (const ext of ['cc', 'hpp', 'h']) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// SPEC-PYDEPS-001 / SPEC-PREDICATE-001 — pythonDeps detection (a)-(g), SPEC-SYNCTEST-001.
+// SPEC-PYDEPS-001 / SPEC-PREDICATE-001 — pythonDeps detection (a)-(l), SPEC-SYNCTEST-001.
 // ---------------------------------------------------------------------------------------------
 
 test('detect: (a) bare main.py with no declared deps does NOT detect fastapi nor cascade to security', () => {
@@ -258,14 +271,30 @@ test('detect: (e) PEP621 optional-dependencies detects pytest', () => {
 
 test('detect: (f) malformed pyproject.toml does not throw and does not affect other detection', () => {
   const repo = tmpDir('cg-py-malformed-');
-  writeF(join(repo, 'pyproject.toml'), '[project\ndependencies = ["unterminated\n');
-  writeF(join(repo, 'package.json'), JSON.stringify({ dependencies: { vue: '^3' } }));
+  writeF(join(repo, 'pyproject.toml'), '[project]\ndependencies = ["fastapi"\n');
+  writeF(join(repo, 'Dockerfile'), 'FROM scratch\n');
   assert.doesNotThrow(() => detect(repo));
   const ids = detect(repo).map((h) => h.id);
-  assert.ok(ids.includes('vue'), 'vue is still detected despite the malformed pyproject.toml alongside it');
+  assert.ok(ids.includes('docker'), 'Docker is still detected despite the malformed pyproject.toml alongside it');
+  assert.ok(!ids.includes('fastapi'), 'deps from an unterminated pyproject array must be discarded');
+  assert.ok(!ids.includes('security'), 'discarded FastAPI must not emit a backend tag');
 });
 
-test('detect: (g) .venv/ is excluded — a fastapi pyproject.toml inside it does not participate', () => {
+test('detect: (g) pyproject array interrupted by a section header is discarded as malformed', () => {
+  const repo = tmpDir('cg-py-section-inside-array-');
+  writeF(
+    join(repo, 'pyproject.toml'),
+    '[project]\ndependencies = [\n  "fastapi",\n[tool.poetry.dependencies]\npython = "^3.11"\n',
+  );
+  writeF(join(repo, 'Dockerfile'), 'FROM scratch\n');
+  assert.doesNotThrow(() => detect(repo));
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('docker'), 'other detectors must still run after the malformed pyproject.toml');
+  assert.ok(!ids.includes('fastapi'), 'deps collected before the malformed section header must be discarded');
+  assert.ok(!ids.includes('security'), 'discarded FastAPI must not emit a backend tag');
+});
+
+test('detect: (h) .venv/ is excluded — a fastapi pyproject.toml inside it does not participate', () => {
   const repo = tmpDir('cg-py-venv-excluded-');
   writeF(
     join(repo, '.venv', 'lib', 'site-packages', 'fastapi', 'pyproject.toml'),
@@ -275,7 +304,24 @@ test('detect: (g) .venv/ is excluded — a fastapi pyproject.toml inside it does
   assert.ok(!ids.includes('fastapi'), '.venv contents must not participate in detection');
 });
 
-test('detect: (h) multi-line array with a non-final extras-qualified entry still detects the later dep (regression)', () => {
+test('detect: (i) tox/nox env manifests and installed package pyprojects are excluded', () => {
+  const repo = tmpDir('cg-py-tox-nox-excluded-');
+  writeF(join(repo, '.tox', 'py311', 'requirements.txt'), 'fastapi==0.110\n');
+  writeF(
+    join(repo, '.nox', 'tests', 'lib', 'python3.11', 'site-packages', 'fastapi', 'pyproject.toml'),
+    '[project]\ndependencies = ["fastapi"]\n',
+  );
+  writeF(
+    join(repo, 'custom-env', 'lib', 'python3.11', 'site-packages', 'flask', 'pyproject.toml'),
+    '[project]\ndependencies = ["flask"]\n',
+  );
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(!ids.includes('fastapi'), '.tox/.nox manifests must not participate in detection');
+  assert.ok(!ids.includes('flask'), 'installed package pyproject.toml files must not participate in detection');
+  assert.ok(!ids.includes('security'), 'env-only backend deps must not cascade to security');
+});
+
+test('detect: (j) multi-line array with a non-final extras-qualified entry still detects the later dep (regression)', () => {
   const repo = tmpDir('cg-py-multiline-extras-');
   writeF(
     join(repo, 'pyproject.toml'),
@@ -286,6 +332,21 @@ test('detect: (h) multi-line array with a non-final extras-qualified entry still
     ids.includes('fastapi'),
     'the "]" inside "uvicorn[standard]" must not prematurely close the multi-line array and drop fastapi',
   );
+});
+
+test('detect: (k) pyproject section headers with inline comments still classify', () => {
+  const repo = tmpDir('cg-py-commented-section-');
+  writeF(join(repo, 'pyproject.toml'), '[project] # package metadata\ndependencies = ["fastapi"]\n');
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('fastapi'), 'inline comments after [project] must not hide the section');
+});
+
+test('detect: (l) pyproject comments do not contribute quoted dependency names', () => {
+  const repo = tmpDir('cg-py-commented-dep-example-');
+  writeF(join(repo, 'pyproject.toml'), '[project]\ndependencies = [] # "fastapi" example only\n');
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(!ids.includes('fastapi'), 'quoted names inside TOML comments must not become pythonDeps');
+  assert.ok(!ids.includes('security'), 'comment-only FastAPI must not emit a backend tag');
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -900,52 +961,56 @@ test('sync: symlink at a write TARGET (leaf rule file, not just the .code-guidel
 // failure never orphans a file that the manifest has already stopped tracking.
 // ---------------------------------------------------------------------------------------------
 
-test('sync: removal failure mid-commit → defined exit code, manifest NOT rewritten to drop a file still on disk (no orphan)', async () => {
-  const assetRoot = buildAssetRoot({ library: LIB, lint: { go: GO_LINT } });
-  const repo = goRepo();
+test(
+  'sync: removal failure mid-commit → defined exit code, manifest NOT rewritten to drop a file still on disk (no orphan)',
+  { skip: process.platform === 'win32' ? 'POSIX chmod does not deny unlink on Windows' : false },
+  async () => {
+    const assetRoot = buildAssetRoot({ library: LIB, lint: { go: GO_LINT } });
+    const repo = goRepo();
 
-  // First run: installs go.md, tracked in the manifest.
-  const r1 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
-  assert.equal(r1.exitCode, 0);
-  assert.ok(existsSync(join(repo, '.code-guidelines', 'go.md')));
+    // First run: installs go.md, tracked in the manifest.
+    const r1 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T0' });
+    assert.equal(r1.exitCode, 0);
+    assert.ok(existsSync(join(repo, '.code-guidelines', 'go.md')));
 
-  // Remove go.mod so `go` is no longer detected → go.md becomes a pending removal.
-  rmSync(join(repo, 'go.mod'), { force: true });
+    // Remove go.mod so `go` is no longer detected → go.md becomes a pending removal.
+    rmSync(join(repo, 'go.mod'), { force: true });
 
-  // Deny write permission on the containing directory so unlink(go.md) fails with EACCES, while
-  // the directory itself stays lstat-able (search bit kept) so the fs-safety pre-check still passes
-  // and only the actual removal fails.
-  const targetDir = join(repo, '.code-guidelines');
-  chmodSync(targetDir, 0o555);
-  let r2;
-  try {
-    r2 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T1' });
-  } finally {
-    chmodSync(targetDir, 0o755); // restore so assertions/cleanup below can read/write again
-  }
+    // Deny write permission on the containing directory so unlink(go.md) fails with EACCES, while
+    // the directory itself stays lstat-able (search bit kept) so the fs-safety pre-check still passes
+    // and only the actual removal fails.
+    const targetDir = join(repo, '.code-guidelines');
+    chmodSync(targetDir, 0o555);
+    let r2;
+    try {
+      r2 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T1' });
+    } finally {
+      chmodSync(targetDir, 0o755); // restore so assertions/cleanup below can read/write again
+    }
 
-  assert.equal(r2.exitCode, 4, 'removal failure maps to a DEFINED exit code, not an uncaught throw');
-  assert.ok(
-    existsSync(join(repo, '.code-guidelines', 'go.md')),
-    'go.md is still physically present (the removal failed)',
-  );
-  const manifestAfterFailure = readManifest(repo);
-  assert.ok(
-    manifestAfterFailure.rules.some((r) => r.file === 'go.md'),
-    'manifest was NOT rewritten to drop go.md while it still exists on disk (no orphan)',
-  );
+    assert.equal(r2.exitCode, 4, 'removal failure maps to a DEFINED exit code, not an uncaught throw');
+    assert.ok(
+      existsSync(join(repo, '.code-guidelines', 'go.md')),
+      'go.md is still physically present (the removal failed)',
+    );
+    const manifestAfterFailure = readManifest(repo);
+    assert.ok(
+      manifestAfterFailure.rules.some((r) => r.file === 'go.md'),
+      'manifest was NOT rewritten to drop go.md while it still exists on disk (no orphan)',
+    );
 
-  // A subsequent clean run (obstruction cleared) must still see go.md as pending removal — never
-  // falsely report up-to-date while an untracked, un-cleaned-up file lingers.
-  const r3 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T2' });
-  assert.equal(r3.exitCode, 0);
-  assert.equal(r3.status.upToDate, false, 'pending go.md removal must not be reported as up-to-date');
-  assert.equal(
-    existsSync(join(repo, '.code-guidelines', 'go.md')),
-    false,
-    'go.md is finally removed once the obstruction is gone',
-  );
-});
+    // A subsequent clean run (obstruction cleared) must still see go.md as pending removal — never
+    // falsely report up-to-date while an untracked, un-cleaned-up file lingers.
+    const r3 = await sync({ platform: 'claude', repoRoot: repo, assetRoot, now: 'T2' });
+    assert.equal(r3.exitCode, 0);
+    assert.equal(r3.status.upToDate, false, 'pending go.md removal must not be reported as up-to-date');
+    assert.equal(
+      existsSync(join(repo, '.code-guidelines', 'go.md')),
+      false,
+      'go.md is finally removed once the obstruction is gone',
+    );
+  },
+);
 
 test('sync: unknown platform → exit 2 usage', async () => {
   const assetRoot = buildAssetRoot({ library: LIB });

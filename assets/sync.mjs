@@ -41,8 +41,12 @@ const PLATFORM_ENTRY = {
 const ENTRY_FILES = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md'];
 
 const EXCLUDED_DIRS = new Set([
-  'node_modules', 'vendor', 'dist', 'build', '.git', '.venv', 'venv', '__pycache__',
+  'node_modules', 'vendor', 'dist', 'build', '.git',
+  '.venv', 'venv', '.env', '.tox', '.nox', 'site-packages',
+  '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.pyre', '.hypothesis',
+  '.ipynb_checkpoints', '.eggs',
 ]);
+const PYTHON_ENV_DIRS = new Set(['env', 'ENV']);
 
 const BLOCK_BEGIN = '<!-- code-guidelines:begin -->';
 const BLOCK_END = '<!-- code-guidelines:end -->';
@@ -302,7 +306,9 @@ function scanRepo(repoRoot) {
       // Symlinks: isDirectory()/isFile() are false for symlinks, so they are naturally skipped
       // (we never follow them during detection).
       if (ent.isDirectory()) {
+        const childAbs = join(abs, name);
         if (EXCLUDED_DIRS.has(name)) continue;
+        if (PYTHON_ENV_DIRS.has(name) && existsSync(join(childAbs, 'pyvenv.cfg'))) continue;
         dirRelPaths.add(childRel);
         stack.push(childRel);
       } else if (ent.isFile()) {
@@ -436,6 +442,31 @@ function stripInlineTables(s) {
   return s.replace(/\{[^}]*\}/g, '');
 }
 
+function stripTomlComment(s) {
+  let quote = null;
+  let escaped = false;
+  for (let i = 0; i < s.length; i += 1) {
+    const ch = s[i];
+    if (quote) {
+      if (quote === '"' && escaped) {
+        escaped = false;
+      } else if (quote === '"' && ch === '\\') {
+        escaped = true;
+      } else if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === '#') return s.slice(0, i);
+  }
+  return s;
+}
+
 function quotedStringsOf(s) {
   const out = [];
   const re = /"([^"]*)"|'([^']*)'/g;
@@ -460,6 +491,10 @@ function closesArray(s) {
   return stripStrings(stripInlineTables(s)).includes(']');
 }
 
+function isTomlSectionHeader(s) {
+  return /^\[\[?[^\]]+\]\]?$/.test(s);
+}
+
 // Classifies a `[section]` header into which pyproject.toml parsing mode applies.
 function classifyPyprojectSection(section) {
   if (section === '[project]') return 'array'; // only the `dependencies` key is a dep array
@@ -474,14 +509,16 @@ function parsePyproject(text, set) {
   let section = '';
   let mode = 'none';
   let inArray = false;
+  const fileDeps = new Set();
   for (const raw of text.split(/\r?\n/)) {
-    const tr = raw.trim();
+    const tr = stripTomlComment(raw).trim();
     if (inArray) {
-      for (const q of quotedStringsOf(stripInlineTables(tr))) addPyName(q, set);
+      if (isTomlSectionHeader(tr)) throw new Error('TOML section header inside array');
+      for (const q of quotedStringsOf(stripInlineTables(tr))) addPyName(q, fileDeps);
       if (closesArray(tr)) inArray = false;
       continue;
     }
-    if (tr.startsWith('[')) {
+    if (isTomlSectionHeader(tr)) {
       section = tr;
       mode = classifyPyprojectSection(section);
       continue;
@@ -492,14 +529,16 @@ function parsePyproject(text, set) {
       if (!tr.includes('=')) continue;
       const rhs = tr.slice(tr.indexOf('=') + 1).trim();
       if (rhs.startsWith('[')) {
-        for (const q of quotedStringsOf(stripInlineTables(rhs))) addPyName(q, set);
+        for (const q of quotedStringsOf(stripInlineTables(rhs))) addPyName(q, fileDeps);
         if (!closesArray(rhs)) inArray = true;
       }
     } else if (mode === 'table') {
       const key = tr.split('=')[0].trim();
-      if (key && key !== 'python' && !key.startsWith('[')) addPyName(key, set);
+      if (key && key !== 'python' && !key.startsWith('[')) addPyName(key, fileDeps);
     }
   }
+  if (inArray) throw new Error('unterminated TOML array');
+  for (const dep of fileDeps) set.add(dep);
 }
 
 function parseRequirements(text, set) {

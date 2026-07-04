@@ -122,6 +122,18 @@ test('every library file has complete, well-typed frontmatter', () => {
   }
 });
 
+test('web-perf appliesTo covers frontend template stacks that emit frontend tags', () => {
+  const raw = fs.readFileSync(path.join(libraryDir, 'web-perf.md'), 'utf8');
+  const { data } = parseFrontmatter(raw, 'web-perf.md');
+
+  for (const glob of ['**/*.astro', '**/*.razor']) {
+    assert.ok(
+      data.appliesTo.includes(glob),
+      `web-perf.md: appliesTo must include ${glob} so frontend-tagged template files trigger the host-block pointer`
+    );
+  }
+});
+
 test('every library file is at most 100 lines', () => {
   const files = listLibraryFiles();
   for (const file of files) {

@@ -7,7 +7,7 @@ not applied to this codebase.
 
 ## Commands
 
-- Tests: `npm test` (i.e. `node --test`, auto-discovers `test/*.test.mjs`). 275 tests, all must pass.
+- Tests: `npm test` (i.e. `node --test`, auto-discovers `test/*.test.mjs`). 281 tests, all must pass.
   - Single file: `node --test test/library.test.mjs`
   - By name: `node --test --test-name-pattern="57"`
 - Build (regenerate checked-in output): `npm run build` (`node src/build/build.mjs`)
@@ -88,7 +88,7 @@ pass whenever you change sync/lint semantics, or the two paths diverge.
 ## Versions
 
 Two independent version numbers, do not conflate: `package.json#version` (the installer, currently
-0.2.0) and `assets/VERSION` (the rule-library asset, currently 1.3.0; it drives reconcile upgrades
+0.3.0) and `assets/VERSION` (the rule-library asset, currently 1.3.0; it drives reconcile upgrades
 in target repos).
 
 ## Toolchain
