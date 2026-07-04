@@ -88,7 +88,7 @@ disk until a single deferred commit phase at the end. This is why `--dry-run`, `
 zero-write short-circuit (identical state ⇒ write nothing, not even an mtime) fall out for free.
 
 - **detect** (`SPEC-DETECT-001`) — two-pass predicate eval over `assets/stacks.json` (files /
-  packageDeps / extensions with a count threshold / `requiresTags`). See the big comment block above
+  packageDeps / extensions with a count threshold / `requiresTags` / pythonDeps). See the big comment block above
   `scanRepo` for the exact AND/OR semantics before touching it.
 - **select** (`SPEC-SELECT-001`) — `guardrails-core` always kept first; others ordered by
   framework→language→domain tier, then specificity, then registry index; capped at 12 rule files
