@@ -422,6 +422,84 @@
       "lint": null
     },
     {
+      "id": "solidjs",
+      "category": "前端",
+      "specificity": 55,
+      "detect": {
+        "packageDeps": [
+          "solid-js"
+        ],
+        "tags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "solidjs"
+      ],
+      "lint": null
+    },
+    {
+      "id": "blazor",
+      "category": "前端",
+      "specificity": 55,
+      "detect": {
+        "extensions": [
+          {
+            "ext": "razor",
+            "minCount": 1
+          }
+        ],
+        "tags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "blazor"
+      ],
+      "lint": null
+    },
+    {
+      "id": "electron",
+      "category": "前端",
+      "specificity": 55,
+      "detect": {
+        "packageDeps": [
+          "electron"
+        ],
+        "tags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "electron"
+      ],
+      "lint": null
+    },
+    {
+      "id": "frontend-state",
+      "category": "前端",
+      "specificity": 40,
+      "detect": {
+        "packageDeps": [
+          "zustand",
+          "@reduxjs/toolkit",
+          "mobx",
+          "jotai",
+          "pinia",
+          "@tanstack/react-query",
+          "@tanstack/vue-query",
+          "swr"
+        ],
+        "tags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "frontend-state"
+      ],
+      "lint": null
+    },
+    {
       "id": "react-native",
       "category": "移动",
       "specificity": 60,
@@ -474,6 +552,34 @@
       },
       "rules": [
         "ios-swiftui"
+      ],
+      "lint": null
+    },
+    {
+      "id": "expo",
+      "category": "移动",
+      "specificity": 70,
+      "detect": {
+        "packageDeps": [
+          "expo"
+        ]
+      },
+      "rules": [
+        "expo"
+      ],
+      "lint": null
+    },
+    {
+      "id": "dotnet-maui",
+      "category": "移动",
+      "specificity": 65,
+      "detect": {
+        "files": [
+          "MauiProgram.cs"
+        ]
+      },
+      "rules": [
+        "dotnet-maui"
       ],
       "lint": null
     },
@@ -702,6 +808,21 @@
       "lint": null
     },
     {
+      "id": "prisma",
+      "category": "数据",
+      "specificity": 50,
+      "detect": {
+        "packageDeps": [
+          "prisma",
+          "@prisma/client"
+        ]
+      },
+      "rules": [
+        "prisma"
+      ],
+      "lint": null
+    },
+    {
       "id": "js-unit-test",
       "category": "测试",
       "specificity": 45,
@@ -850,6 +971,45 @@
       },
       "rules": [
         "a11y"
+      ],
+      "lint": null
+    },
+    {
+      "id": "web-perf",
+      "category": "横切",
+      "specificity": 25,
+      "detect": {
+        "requiresTags": [
+          "frontend"
+        ]
+      },
+      "rules": [
+        "web-perf"
+      ],
+      "lint": null
+    },
+    {
+      "id": "llm-app",
+      "category": "横切",
+      "specificity": 45,
+      "detect": {
+        "packageDeps": [
+          "openai",
+          "@anthropic-ai/sdk",
+          "ai",
+          "langchain",
+          "@langchain/core",
+          "llamaindex"
+        ],
+        "pythonDeps": [
+          "openai",
+          "anthropic",
+          "langchain",
+          "llama-index"
+        ]
+      },
+      "rules": [
+        "llm-app"
       ],
       "lint": null
     }

@@ -54,9 +54,9 @@ test('stacks.json parses and has a top-level version + stacks array', () => {
   assert.ok(Array.isArray(data.stacks), 'stacks must be an array');
 });
 
-test('stacks.json contains exactly 48 stack entries', () => {
+test('stacks.json contains exactly 57 stack entries', () => {
   const { stacks } = loadStacks();
-  assert.equal(stacks.length, 48);
+  assert.equal(stacks.length, 57);
 });
 
 test('every stack id is a non-empty string and unique', () => {
@@ -221,12 +221,12 @@ test('every stack rules is a non-empty array of strings', () => {
   }
 });
 
-test('every rules entry is one of the 48 stack ids (bare basenames)', () => {
+test('every rules entry is one of the 57 stack ids (bare basenames)', () => {
   const { stacks } = loadStacks();
   const ids = new Set(stacks.map((s) => s.id));
   for (const stack of stacks) {
     for (const rule of stack.rules) {
-      assert.ok(ids.has(rule), `${stack.id}: rules entry '${rule}' is not one of the 48 stack ids`);
+      assert.ok(ids.has(rule), `${stack.id}: rules entry '${rule}' is not one of the 57 stack ids`);
       assert.ok(!rule.endsWith('.md'), `${stack.id}: rules entry '${rule}' must be a bare basename`);
     }
   }

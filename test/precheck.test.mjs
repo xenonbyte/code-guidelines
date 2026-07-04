@@ -65,7 +65,7 @@ function copyFixture(name) {
 // Minimal injectable asset root: real stacks.json + VERSION, no library/lint payload. sync()'s
 // reconcile()/armLint() degrade to no-op-for-that-file when the underlying library/lint asset is
 // absent (SPEC-RECONCILE-001 / SPEC-LINT-001 "library-missing" skip), so this is sufficient to
-// drive the full pipeline for precheck/host-block assertions without needing the 48-rule library
+// drive the full pipeline for precheck/host-block assertions without needing the 57-rule library
 // or the 11 lint baselines (later tasks).
 function buildMinimalAssetRoot() {
   const assetRoot = tmpDir('cg-precheck-assets-');

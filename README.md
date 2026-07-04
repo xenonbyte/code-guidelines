@@ -18,7 +18,7 @@ section by section with this one).
 into a single context-hungry file, it delivers three layers of constraints on demand, each behind
 its own explicit command —
 
-1. `/code-guidelines` — a small, curated library of 48 guardrail rule files (one per supported
+1. `/code-guidelines` — a small, curated library of 57 guardrail rule files (one per supported
    stack/framework/language), plus a managed pointer block in the entry file;
 2. `/code-guidelines-lint` — machine-enforced lint baselines (11 toolchains), armed once the first
    time a stack is detected and the project has no existing lint configuration for that tool;
@@ -49,19 +49,21 @@ The `--platform` flag on `install` / `uninstall` accepts any comma-separated sub
 
 ## Supported stacks & languages
 
-Detection selects from **48 guardrail rule files across 9 categories**. `guardrails-core` is always
+Detection selects from **57 guardrail rule files across 9 categories**. `guardrails-core` is always
 applied; the rest are selected by detecting the repository's stack, with a total-ordered cap of 12
 rule files per repository:
 
 - **Core (1):** guardrails-core — universal clean-code / anti-over-engineering guardrails, always on.
 - **Languages (12):** TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, Swift, C#, C++, PHP, Ruby.
-- **Frontend (9):** React, Next.js, Vue, Nuxt, Angular, Svelte, Astro, Tailwind CSS, HTML/CSS.
-- **Mobile (4):** React Native, Flutter, Android (Jetpack Compose), iOS (SwiftUI).
+- **Frontend (13):** React, Next.js, Vue, Nuxt, Angular, Svelte, Astro, Tailwind CSS, HTML/CSS, SolidJS,
+  Blazor, Electron, frontend state management (Zustand/Redux Toolkit/Pinia/TanStack Query/…).
+- **Mobile (6):** React Native, Flutter, Android (Jetpack Compose), iOS (SwiftUI), Expo, .NET MAUI.
 - **Backend (9):** Node.js API, Django, FastAPI, Flask, Spring Boot, Laravel, Rails, ASP.NET Core, GraphQL.
-- **Data (3):** SQL, MongoDB, Python ML.
+- **Data (4):** SQL, MongoDB, Python ML, Prisma.
 - **Testing (3):** JS unit testing, end-to-end testing, pytest.
 - **DevOps (4):** Docker, Kubernetes, Terraform, GitHub Actions.
-- **Cross-cutting (3):** REST API, Security (OWASP-oriented), Accessibility (a11y).
+- **Cross-cutting (5):** REST API, Security (OWASP-oriented), Accessibility (a11y), Web performance
+  (Core Web Vitals), LLM application security (OWASP LLM Top 10).
 
 **Lint baselines (11 toolchains)** are armed by the separate `/code-guidelines-lint` command, once
 per tool, when a stack is detected and the project has no existing config for that tool — using each

@@ -12,7 +12,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const libraryDir = path.join(repoRoot, 'assets', 'library');
 const stacksPath = path.join(repoRoot, 'assets', 'stacks.json');
 
-const EXPECTED_FILE_COUNT = 48;
+const EXPECTED_FILE_COUNT = 57;
 const MAX_LINES = 100;
 const REQUIRED_KEYS = ['name', 'description', 'appliesTo', 'stacks', 'source'];
 
@@ -73,7 +73,7 @@ function parseFrontmatter(raw, filename) {
   return { data, body };
 }
 
-test('assets/library/ contains exactly 48 .md files', () => {
+test('assets/library/ contains exactly 57 .md files', () => {
   const files = listLibraryFiles();
   assert.equal(
     files.length,

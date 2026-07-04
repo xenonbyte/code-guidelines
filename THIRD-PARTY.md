@@ -5,10 +5,10 @@ provenance of the two content sets this project ships that were not authored pur
 repository's own reasoning: the curated rule library (`assets/library/`) and the lint baseline
 configurations (`assets/lint/`).
 
-## Rule library (`assets/library/`, 48 files)
+## Rule library (`assets/library/`, 57 files)
 
 Every file in `assets/library/` is an **original work, authored fresh for this project**. None of
-the 48 rule files is a verbatim copy, near-verbatim copy, or line-for-line adaptation of any
+the 57 rule files is a verbatim copy, near-verbatim copy, or line-for-line adaptation of any
 upstream text. Each file's frontmatter carries a `source` field; for every file currently in this
 library that value is `original`, meaning it was distilled and written from scratch rather than
 copied from an upstream `.mdc`/rule file — see the frontmatter of any file under

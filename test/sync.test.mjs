@@ -118,13 +118,14 @@ test('detect: detect-go fixture → go (+ always-on core)', () => {
   );
 });
 
-test('detect: detect-monorepo aggregate scan → react + a11y + security via two-pass tag emission', () => {
+test('detect: detect-monorepo aggregate scan → react + a11y + security + web-perf via two-pass tag emission', () => {
   const hits = detect(join(FIXTURES, 'detect-monorepo'));
   const ids = hits.map((h) => h.id).filter((id) => id !== 'guardrails-core');
   // react matches via packageDeps (root package.json) and emits the "frontend" tag;
-  // a11y (requiresTags:["frontend"]) resolves in pass 2, as does security (requiresTags is OR of
-  // ["backend","frontend"] — Task-10 Fix Wave 1 — so a frontend-only repo satisfies it too).
-  assert.deepEqual(ids.sort(), ['a11y', 'react', 'security']);
+  // a11y and web-perf (both requiresTags:["frontend"]) resolve in pass 2, as does security
+  // (requiresTags is OR of ["backend","frontend"] — Task-10 Fix Wave 1 — so a frontend-only repo
+  // satisfies it too).
+  assert.deepEqual(ids.sort(), ['a11y', 'react', 'security', 'web-perf']);
 });
 
 test('detect: excluded dirs (node_modules/dist/…) are NOT scanned', () => {

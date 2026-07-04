@@ -9,7 +9,7 @@ not applied to this codebase.
 
 - Tests: `npm test` (i.e. `node --test`, auto-discovers `test/*.test.mjs`). 267 tests, all must pass.
   - Single file: `node --test test/library.test.mjs`
-  - By name: `node --test --test-name-pattern="48"`
+  - By name: `node --test --test-name-pattern="57"`
 - Build (regenerate checked-in output): `npm run build` (`node src/build/build.mjs`)
 - Build self-conformance gate: `npm run check` (`node src/build/build.mjs --check`) — fails if
   `generated/` is not byte-identical to a fresh build.
@@ -74,7 +74,7 @@ pass whenever you change sync/lint semantics, or the two paths diverge.
 
 ## Invariants enforced by tests (edits that miss these break CI)
 
-- `assets/library/`: exactly **48** `.md` files; each ≤100 lines; frontmatter keys
+- `assets/library/`: exactly **57** `.md` files; each ≤100 lines; frontmatter keys
   `name`/`description`/`appliesTo`/`stacks`/`source`; `name` must equal the file basename; body in
   English with `## Hard Constraints (MUST NOT)` before `## Ecosystem Idioms & Conventions`
   (exact heading text matters — see `test/library.test.mjs`).
@@ -88,7 +88,7 @@ pass whenever you change sync/lint semantics, or the two paths diverge.
 ## Versions
 
 Two independent version numbers, do not conflate: `package.json#version` (the installer, currently
-0.2.0) and `assets/VERSION` (the rule-library asset, currently 1.2.0; it drives reconcile upgrades
+0.2.0) and `assets/VERSION` (the rule-library asset, currently 1.3.0; it drives reconcile upgrades
 in target repos).
 
 ## Toolchain
