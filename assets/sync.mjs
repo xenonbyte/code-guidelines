@@ -447,6 +447,19 @@ function quotedStringsOf(s) {
   return out;
 }
 
+// Strips quoted-string contents (so a `]` inside e.g. an extras spec `"uvicorn[standard]"` is never
+// mistaken for an array terminator).
+function stripStrings(s) {
+  return s.replace(/"[^"]*"|'[^']*'/g, '');
+}
+
+// An array closes only on a `]` that appears outside both quoted strings and inline tables —
+// otherwise extras like `"uvicorn[standard]"` on a non-final line of a multi-line array would
+// prematurely close it and drop every dependency listed after it.
+function closesArray(s) {
+  return stripStrings(stripInlineTables(s)).includes(']');
+}
+
 // Classifies a `[section]` header into which pyproject.toml parsing mode applies.
 function classifyPyprojectSection(section) {
   if (section === '[project]') return 'array'; // only the `dependencies` key is a dep array
@@ -465,7 +478,7 @@ function parsePyproject(text, set) {
     const tr = raw.trim();
     if (inArray) {
       for (const q of quotedStringsOf(stripInlineTables(tr))) addPyName(q, set);
-      if (tr.includes(']')) inArray = false;
+      if (closesArray(tr)) inArray = false;
       continue;
     }
     if (tr.startsWith('[')) {
@@ -480,7 +493,7 @@ function parsePyproject(text, set) {
       const rhs = tr.slice(tr.indexOf('=') + 1).trim();
       if (rhs.startsWith('[')) {
         for (const q of quotedStringsOf(stripInlineTables(rhs))) addPyName(q, set);
-        if (!rhs.includes(']')) inArray = true;
+        if (!closesArray(rhs)) inArray = true;
       }
     } else if (mode === 'table') {
       const key = tr.split('=')[0].trim();

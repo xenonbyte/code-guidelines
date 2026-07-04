@@ -274,6 +274,19 @@ test('detect: (g) .venv/ is excluded — a fastapi pyproject.toml inside it does
   assert.ok(!ids.includes('fastapi'), '.venv contents must not participate in detection');
 });
 
+test('detect: (h) multi-line array with a non-final extras-qualified entry still detects the later dep (regression)', () => {
+  const repo = tmpDir('cg-py-multiline-extras-');
+  writeF(
+    join(repo, 'pyproject.toml'),
+    '[project]\ndependencies = [\n  "uvicorn[standard]",\n  "fastapi",\n]\n',
+  );
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(
+    ids.includes('fastapi'),
+    'the "]" inside "uvicorn[standard]" must not prematurely close the multi-line array and drop fastapi',
+  );
+});
+
 // ---------------------------------------------------------------------------------------------
 // SPEC-DETECT-001 — requiresTags is OR (Task-10 Fix Wave 1): security:["backend","frontend"]
 // applies to EITHER a backend-only or a frontend-only repo, not only a full-stack one.
