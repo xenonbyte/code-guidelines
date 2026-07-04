@@ -99,7 +99,7 @@ test('exactly one 核心 stack (guardrails-core) and it declares no detect', () 
   );
 });
 
-test('every non-core stack has a well-formed four-predicate detect shape', () => {
+test('every non-core stack has a well-formed five-predicate detect shape', () => {
   const { stacks } = loadStacks();
   for (const stack of stacks) {
     if (stack.id === 'guardrails-core') continue;
@@ -131,6 +131,22 @@ test('every non-core stack has a well-formed four-predicate detect shape', () =>
         assert.ok(dep.length > 0);
       }
       if (detect.packageDeps.length > 0) hasActionablePredicate = true;
+    }
+
+    if ('pythonDeps' in detect) {
+      assert.ok(
+        Array.isArray(detect.pythonDeps),
+        `${stack.id}: detect.pythonDeps must be an array`,
+      );
+      for (const dep of detect.pythonDeps) {
+        assert.equal(typeof dep, 'string', `${stack.id}: detect.pythonDeps entries must be strings`);
+        assert.ok(dep.length > 0);
+        assert.ok(
+          /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(dep),
+          `${stack.id}: detect.pythonDeps entry '${dep}' must be PEP503-normalized`,
+        );
+      }
+      if (detect.pythonDeps.length > 0) hasActionablePredicate = true;
     }
 
     if ('extensions' in detect) {
@@ -188,7 +204,7 @@ test('every non-core stack has a well-formed four-predicate detect shape', () =>
     assert.ok(
       hasActionablePredicate,
       `${stack.id}: detect must declare at least one actionable predicate ` +
-        '(files/packageDeps/extensions/requiresTags)',
+        '(files/packageDeps/pythonDeps/extensions/requiresTags)',
     );
   }
 });

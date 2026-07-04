@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "stacks": [
     {
       "id": "guardrails-core",
@@ -504,6 +504,9 @@
         "files": [
           "manage.py"
         ],
+        "pythonDeps": [
+          "django"
+        ],
         "tags": [
           "backend"
         ]
@@ -518,8 +521,8 @@
       "category": "后端",
       "specificity": 65,
       "detect": {
-        "files": [
-          "main.py"
+        "pythonDeps": [
+          "fastapi"
         ],
         "tags": [
           "backend"
@@ -535,8 +538,8 @@
       "category": "后端",
       "specificity": 55,
       "detect": {
-        "files": [
-          "app.py"
+        "pythonDeps": [
+          "flask"
         ],
         "tags": [
           "backend"
@@ -659,6 +662,10 @@
         "packageDeps": [
           "mongodb",
           "mongoose"
+        ],
+        "pythonDeps": [
+          "pymongo",
+          "motor"
         ]
       },
       "rules": [
@@ -676,6 +683,14 @@
             "ext": "ipynb",
             "minCount": 1
           }
+        ],
+        "pythonDeps": [
+          "numpy",
+          "pandas",
+          "scikit-learn",
+          "torch",
+          "tensorflow",
+          "jupyter"
         ],
         "requiresTags": [
           "python"
@@ -725,6 +740,9 @@
         "files": [
           "pytest.ini",
           "conftest.py"
+        ],
+        "pythonDeps": [
+          "pytest"
         ]
       },
       "rules": [

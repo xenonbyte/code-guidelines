@@ -40,7 +40,9 @@ const PLATFORM_ENTRY = {
 // All entry-doc filenames whose managed block is maintained when present at repo root.
 const ENTRY_FILES = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md'];
 
-const EXCLUDED_DIRS = new Set(['node_modules', 'vendor', 'dist', 'build', '.git']);
+const EXCLUDED_DIRS = new Set([
+  'node_modules', 'vendor', 'dist', 'build', '.git', '.venv', 'venv', '__pycache__',
+]);
 
 const BLOCK_BEGIN = '<!-- code-guidelines:begin -->';
 const BLOCK_END = '<!-- code-guidelines:end -->';
@@ -253,7 +255,7 @@ function validateTargetManifest(o) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// SPEC-DETECT-001: repo scan + four-predicate two-pass detection (PURE, deterministic).
+// SPEC-DETECT-001: repo scan + five-predicate two-pass detection (PURE, deterministic).
 //
 // AND/OR SEMANTICS (pinned here, documented per Task-9 DEFER; requiresTags flipped to OR per
 // Task-10 Fix Wave 1 — see execution/task-10-review.md §3):
@@ -261,7 +263,9 @@ function validateTargetManifest(o) {
 //   * within a `packageDeps` list -> OR (any listed dep present in any package.json)
 //   * within an `extensions` list -> OR (any {ext,minCount} threshold met across the repo,
 //     minus optional per-entry excludeFiles)
-//   * ACROSS the three populated non-requiresTags predicate types -> OR (any type matching = base hit)
+//   * within a `pythonDeps` list -> OR (any listed name present in the pyproject.toml /
+//     requirements*.txt merge, PEP 503 normalized; SPEC-PYDEPS-001)
+//   * ACROSS the four populated non-requiresTags predicate types -> OR (any type matching = base hit)
 //   * `requiresTags` -> OR gate: AT LEAST ONE required tag must have been emitted by a pass-1 hit
 //     (e.g. security:["backend","frontend"] applies to a backend-only OR a frontend-only repo, not
 //     only a full-stack one; a11y:["frontend"] and python-ml:["python"] are unaffected since AND
@@ -279,6 +283,8 @@ function scanRepo(repoRoot) {
   const fileBasenames = new Set();
   const extCounts = new Map();
   const packageJsons = [];
+  const pyprojectTexts = [];
+  const requirementsTexts = [];
 
   const stack = [''];
   while (stack.length) {
@@ -314,10 +320,27 @@ function scanRepo(repoRoot) {
             /* ignore malformed/unreadable package.json */
           }
         }
+        if (name === 'pyproject.toml') {
+          try {
+            pyprojectTexts.push(readFileSync(join(abs, name), 'utf8'));
+          } catch {
+            /* ignore unreadable pyproject.toml */
+          }
+        }
+        if (/^requirements[^/]*\.txt$/.test(name)) {
+          try {
+            requirementsTexts.push(readFileSync(join(abs, name), 'utf8'));
+          } catch {
+            /* ignore unreadable requirements file */
+          }
+        }
       }
     }
   }
-  return { fileRelPaths, dirRelPaths, fileBasenames, extCounts, packageJsons };
+  return {
+    fileRelPaths, dirRelPaths, fileBasenames, extCounts, packageJsons, pyprojectTexts,
+    requirementsTexts,
+  };
 }
 
 function mergeDeps(packageJsons) {
@@ -393,11 +416,118 @@ function matchPackageDeps(names, mergedDeps) {
   return false;
 }
 
+// ---------------------------------------------------------------------------------------------
+// SPEC-PYDEPS-001: mergePythonDeps — hand-rolled line state machine (no TOML library; zero-dep
+// hard constraint). Mirrors mergeDeps' best-effort, per-text try/catch silent-skip contract.
+// ---------------------------------------------------------------------------------------------
+
+function normalizePyName(n) {
+  return n.toLowerCase().replace(/[-_.]+/g, '-');
+}
+
+function addPyName(s, set) {
+  const m = /^([A-Za-z0-9][A-Za-z0-9._-]*)/.exec(s.trim());
+  if (m) set.add(normalizePyName(m[1]));
+}
+
+// Removes inline tables (e.g. `{ include-group = "..." }` from PEP 735) so their contents are
+// never mistaken for a PEP 508 package-name string.
+function stripInlineTables(s) {
+  return s.replace(/\{[^}]*\}/g, '');
+}
+
+function quotedStringsOf(s) {
+  const out = [];
+  const re = /"([^"]*)"|'([^']*)'/g;
+  let m = re.exec(s);
+  while (m) {
+    out.push(m[1] !== undefined ? m[1] : m[2]);
+    m = re.exec(s);
+  }
+  return out;
+}
+
+// Classifies a `[section]` header into which pyproject.toml parsing mode applies.
+function classifyPyprojectSection(section) {
+  if (section === '[project]') return 'array'; // only the `dependencies` key is a dep array
+  if (section === '[project.optional-dependencies]') return 'array'; // any key
+  if (section === '[dependency-groups]') return 'array'; // PEP 735, any key
+  if (section === '[tool.poetry.dependencies]') return 'table';
+  if (/^\[tool\.poetry\.group\.[^.\]]+\.dependencies\]$/.test(section)) return 'table';
+  return 'none';
+}
+
+function parsePyproject(text, set) {
+  let section = '';
+  let mode = 'none';
+  let inArray = false;
+  for (const raw of text.split(/\r?\n/)) {
+    const tr = raw.trim();
+    if (inArray) {
+      for (const q of quotedStringsOf(stripInlineTables(tr))) addPyName(q, set);
+      if (tr.includes(']')) inArray = false;
+      continue;
+    }
+    if (tr.startsWith('[')) {
+      section = tr;
+      mode = classifyPyprojectSection(section);
+      continue;
+    }
+    if (mode === 'array') {
+      const key = tr.split('=')[0].trim();
+      if (section === '[project]' && key !== 'dependencies') continue;
+      if (!tr.includes('=')) continue;
+      const rhs = tr.slice(tr.indexOf('=') + 1).trim();
+      if (rhs.startsWith('[')) {
+        for (const q of quotedStringsOf(stripInlineTables(rhs))) addPyName(q, set);
+        if (!rhs.includes(']')) inArray = true;
+      }
+    } else if (mode === 'table') {
+      const key = tr.split('=')[0].trim();
+      if (key && key !== 'python' && !key.startsWith('[')) addPyName(key, set);
+    }
+  }
+}
+
+function parseRequirements(text, set) {
+  for (const raw of text.split(/\r?\n/)) {
+    const tr = raw.replace(/\s+#.*$/, '').trim(); // strip inline comments first
+    if (tr === '' || tr.startsWith('#') || tr.startsWith('-')) continue;
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(tr)) continue; // whole-line direct URL reference only
+    addPyName(tr, set);
+  }
+}
+
+function mergePythonDeps(pyprojectTexts, requirementsTexts) {
+  const deps = new Set();
+  for (const t of pyprojectTexts) {
+    try {
+      parsePyproject(t, deps);
+    } catch {
+      /* ignore malformed/unreadable pyproject.toml (best-effort detection) */
+    }
+  }
+  for (const t of requirementsTexts) {
+    try {
+      parseRequirements(t, deps);
+    } catch {
+      /* ignore malformed/unreadable requirements file (best-effort detection) */
+    }
+  }
+  return deps;
+}
+
+function matchPythonDeps(names, mergedPyDeps) {
+  for (const n of names) if (mergedPyDeps.has(n)) return true;
+  return false;
+}
+
 export function detect(repoRoot, { assetRoot } = {}) {
   const root = repoRoot ?? process.cwd();
   const { stacks } = loadStacks(assetRoot);
   const scan = scanRepo(root);
   const mergedDeps = mergeDeps(scan.packageJsons);
+  const mergedPyDeps = mergePythonDeps(scan.pyprojectTexts, scan.requirementsTexts);
 
   function baseMatch(det) {
     if (!det) return true; // guardrails-core (null) always matches
@@ -408,6 +538,9 @@ export function detect(repoRoot, { assetRoot } = {}) {
     }
     if (Array.isArray(det.extensions) && det.extensions.length) {
       results.push(matchExtensions(det.extensions, scan));
+    }
+    if (Array.isArray(det.pythonDeps) && det.pythonDeps.length) {
+      results.push(matchPythonDeps(det.pythonDeps, mergedPyDeps));
     }
     if (results.length === 0) return true; // only requiresTags (or nothing) populated
     return results.some(Boolean); // OR across predicate types

@@ -213,6 +213,68 @@ for (const ext of ['cc', 'hpp', 'h']) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// SPEC-PYDEPS-001 / SPEC-PREDICATE-001 — pythonDeps detection (a)-(g), SPEC-SYNCTEST-001.
+// ---------------------------------------------------------------------------------------------
+
+test('detect: (a) bare main.py with no declared deps does NOT detect fastapi nor cascade to security', () => {
+  const repo = tmpDir('cg-py-main-only-');
+  writeF(join(repo, 'main.py'), '');
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(!ids.includes('fastapi'), 'bare main.py alone must not be mistaken for FastAPI');
+  assert.ok(!ids.includes('security'), 'no backend tag emitted, so security must not cascade in either');
+});
+
+test('detect: (b) pyproject [project].dependencies with fastapi is detected', () => {
+  const repo = tmpDir('cg-py-pep621-');
+  writeF(join(repo, 'pyproject.toml'), '[project]\ndependencies = ["fastapi"]\n');
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('fastapi'), 'fastapi detected via PEP 621 [project].dependencies');
+});
+
+test('detect: (c) requirements.txt with Flask is detected (case-insensitive PEP503 normalize)', () => {
+  const repo = tmpDir('cg-py-requirements-');
+  writeF(join(repo, 'requirements.txt'), 'Flask==3.0\n');
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('flask'), 'Flask==3.0 normalizes to flask and is detected');
+});
+
+test('detect: (d) poetry dependencies table detects fastapi (python key internally dropped)', () => {
+  const repo = tmpDir('cg-py-poetry-');
+  writeF(
+    join(repo, 'pyproject.toml'),
+    '[tool.poetry.dependencies]\npython = "^3.11"\nfastapi = "^0.110"\n',
+  );
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('fastapi'), 'fastapi detected via [tool.poetry.dependencies] table key');
+});
+
+test('detect: (e) PEP621 optional-dependencies detects pytest', () => {
+  const repo = tmpDir('cg-py-optional-');
+  writeF(join(repo, 'pyproject.toml'), '[project.optional-dependencies]\ndev = ["pytest"]\n');
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('pytest'), 'pytest detected via [project.optional-dependencies]');
+});
+
+test('detect: (f) malformed pyproject.toml does not throw and does not affect other detection', () => {
+  const repo = tmpDir('cg-py-malformed-');
+  writeF(join(repo, 'pyproject.toml'), '[project\ndependencies = ["unterminated\n');
+  writeF(join(repo, 'package.json'), JSON.stringify({ dependencies: { vue: '^3' } }));
+  assert.doesNotThrow(() => detect(repo));
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(ids.includes('vue'), 'vue is still detected despite the malformed pyproject.toml alongside it');
+});
+
+test('detect: (g) .venv/ is excluded — a fastapi pyproject.toml inside it does not participate', () => {
+  const repo = tmpDir('cg-py-venv-excluded-');
+  writeF(
+    join(repo, '.venv', 'lib', 'site-packages', 'fastapi', 'pyproject.toml'),
+    '[project]\ndependencies=["fastapi"]\n',
+  );
+  const ids = detect(repo).map((h) => h.id);
+  assert.ok(!ids.includes('fastapi'), '.venv contents must not participate in detection');
+});
+
+// ---------------------------------------------------------------------------------------------
 // SPEC-DETECT-001 — requiresTags is OR (Task-10 Fix Wave 1): security:["backend","frontend"]
 // applies to EITHER a backend-only or a frontend-only repo, not only a full-stack one.
 // ---------------------------------------------------------------------------------------------
