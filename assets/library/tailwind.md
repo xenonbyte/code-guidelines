@@ -12,7 +12,7 @@ source: original
 
 - MUST NOT build class names by string-concatenating dynamic fragments (e.g. `` `text-${color}-500` ``) — the compiler needs complete, static class strings to detect usage.
 - MUST NOT reach for arbitrary-value utilities as a substitute for an existing design-token entry (spacing/color/breakpoint) — undermines the shared scale.
-- MUST NOT use `!`-prefixed important overrides as a routine way to fight specificity instead of fixing the underlying conflict.
+- MUST NOT use the `!` important modifier (e.g. `text-red-500!` in v4's trailing syntax) as a routine way to fight specificity instead of fixing the underlying conflict.
 - MUST NOT duplicate the same long utility combination across many components instead of extracting a shared component or `@apply` class.
 - MUST NOT ship an interactive element styled only with utility classes but no visible focus state.
 
