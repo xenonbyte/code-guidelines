@@ -17,7 +17,7 @@ hard product constraint (see `assets/sync.mjs` header), not an accident. Do not 
 ## Commands
 
 ```sh
-node --test                       # run the whole suite (260+ tests, node:test — no framework)
+node --test                       # run the whole suite (267 tests, node:test — no framework)
 node --test test/sync.test.mjs    # run one test file
 node --test --test-name-pattern "zero-write"   # run tests matching a name
 npm run build                     # regenerate generated/ from fragments/ + registry.mjs
@@ -29,6 +29,11 @@ node bin/code-guidelines install [--platform claude,codex,...]   # exercise the 
 and commit the updated `generated/`.** `npm run check` fails the build otherwise — `generated/` is a
 committed, byte-for-byte reproducible artifact, and `test/platform.test.mjs` / the check gate enforce
 that it is never stale.
+
+There is **no lint or typecheck step for this repo itself** — `node --test`, `npm run build`, and
+`npm run check` are the entire gate. The configs under `assets/lint/` are payloads shipped into
+*other* repos; do not run eslint/ruff/etc. against this codebase. `AGENTS.md` is a parallel dev
+guide covering the same ground for non-Claude agents — keep the two consistent when behavior changes.
 
 ## The three programs (this is the key architecture)
 
@@ -126,9 +131,11 @@ No timestamps, `Math.random`, `Date.now`, or locale-dependent behavior anywhere 
 ## Conventions
 
 - ES modules only (`.mjs`, `"type": "module"`). Tests use the built-in `node:test` runner + `node:assert/strict` — no Jest/Mocha/Vitest.
-- Source comments cite spec IDs (`SPEC-*`, `DES-*`, `DECISION-*`, `RISK-*`, `PLAN-TASK-*`). These trace to the archived spec-driven-development run under `.req-to-plan/archive/`. Preserve the ID references when editing near them; they are how design intent is tracked.
+- Source comments cite spec IDs (`SPEC-*`, `DES-*`, `DECISION-*`, `RISK-*`, `PLAN-TASK-*`) as **in-source cross-references** — the same ID recurs across the code and tests that implement it (e.g. `git grep RISK-DET-001` lands on the determinism code plus the tests pinning it). Those IDs, not any external doc, are the durable anchor: the spec-driven-development run they originated in lives under `.req-to-plan/archive/`, which is git-ignored and absent from a clone. Preserve the ID references when editing near them; they are how design intent is traced.
 - Modules with disk knowledge (path layout) are kept separate from source-agnostic engines, and roots are injectable (`{ home, env, repoRoot, assetRoot }`) so tests never touch the real home dir. Follow that pattern for new I/O code.
 - `README.md` and `README.zh-CN.md` are kept section-by-section aligned; `test/readme.test.mjs` guards claims in them. Update both, and the test, when product behavior changes.
+- **Two independent version numbers, never conflated:** `package.json#version` (the installer, `0.2.0`) and `assets/VERSION` (the rule-library asset, `1.2.0`). The latter drives reconcile upgrades in target repos.
+- **Asset shape is test-pinned** — adding a stack means touching several files in lockstep, or a test fails: `assets/library/` holds exactly 48 `.md` rule files (each ≤100 lines, fixed frontmatter + heading order — see `test/library.test.mjs`); `assets/lint/` holds exactly 11 baseline sets each with required filenames + `meta.json` (`test/baseline.test.mjs`); and every `assets/stacks.json` entry must resolve to a real `assets/library/<rule>.md` and `assets/lint/<key>/` (`test/stacks.test.mjs`).
 
 ## Dogfooding
 
