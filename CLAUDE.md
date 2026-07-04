@@ -34,6 +34,7 @@ There is **no lint or typecheck step for this repo itself** — `node --test`, `
 `npm run check` are the entire gate. The configs under `assets/lint/` are payloads shipped into
 *other* repos; do not run eslint/ruff/etc. against this codebase. `AGENTS.md` is a parallel dev
 guide covering the same ground for non-Claude agents — keep the two consistent when behavior changes.
+This gate also runs in CI on every push and pull request.
 
 ## The three programs (this is the key architecture)
 

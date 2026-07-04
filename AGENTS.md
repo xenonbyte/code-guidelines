@@ -16,6 +16,8 @@ not applied to this codebase.
 - Run the CLI from a checkout: `node bin/code-guidelines <command>` (no `npm install` needed).
 - There is NO lint or typecheck step configured for this repo. Do not run eslint/ruff/etc. here.
 
+This gate (`npm run check` and `node --test`) also runs in CI on every push and pull request.
+
 ## The deterministic single-source build (most important invariant)
 
 `generated/<platform>/*` is **committed output**, never hand-edited. It is composed from:
