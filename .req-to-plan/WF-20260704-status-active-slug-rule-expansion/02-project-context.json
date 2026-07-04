@@ -1,0 +1,27 @@
+{
+  "repo_root": "/Users/xubo/x-studio/code-guidelines",
+  "languages": {
+    "JavaScript": 27,
+    "PHP": 21
+  },
+  "package_managers": [
+    "npm"
+  ],
+  "test_commands": [
+    "npm test"
+  ],
+  "entrypoints": [],
+  "dependencies": [],
+  "config_files": [
+    "test/fixtures/detect-go/go.mod",
+    "assets/lint/js-ts/tsconfig.json"
+  ],
+  "source_dirs": [
+    "assets",
+    "bin",
+    "fragments",
+    "generated",
+    "src",
+    "test"
+  ]
+}
