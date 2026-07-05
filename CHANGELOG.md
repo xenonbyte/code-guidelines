@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format is based on
 This project tracks **two independent version numbers** (see `CLAUDE.md`): the installer
 (`package.json#version`) and the rule-library asset (`assets/VERSION`). Each release below notes both.
 
+## [0.3.1] — 2026-07-05
+
+Installer `0.3.0 → 0.3.1` · rule-library asset unchanged (`1.3.0`). Installer-only fix; rule content,
+exit codes, the two-phase-commit flow, and user-edit protection are unchanged.
+
+### Fixed
+
+- **Codex install target migrated to Agent Skills.** Codex commands were installed as deprecated
+  custom prompts under `~/.codex/prompts/<id>.md`, which current Codex CLI no longer surfaces the way
+  the other platforms do (they appear, if at all, only under a `/prompts:` prefix). They now install
+  as Agent Skills at `~/.agents/skills/<id>/SKILL.md` — the location Codex reads and recommends —
+  matching the `SKILL.md`-per-directory shape already used for Claude. In Codex, invoke them via the
+  `/skills` picker or `$code-guidelines` (`$code-guidelines-lint` / `$code-guidelines-distill`).
+- **Reinstall migrates cleanly.** `~/.codex/prompts/` is retained as a cleanup-only legacy root, so a
+  reinstall removes the previously-owned `~/.codex/prompts/code-guidelines*.md` rather than orphaning
+  it — otherwise it would linger as a duplicate deprecated `/prompts:code-guidelines`.
+
 ## [0.3.0] — 2026-07-05
 
 Installer `0.2.0 → 0.3.0` · rule-library asset `1.2.0 → 1.3.0`. Backward-compatible: exit codes,
@@ -43,5 +60,6 @@ the two-phase-commit flow, and user-edit protection are unchanged.
 
 Baseline for this changelog. Installer `0.2.0`, rule-library asset `1.2.0`.
 
+[0.3.1]: https://github.com/xenonbyte/code-guidelines/releases/tag/v0.3.1
 [0.3.0]: https://github.com/xenonbyte/code-guidelines/releases/tag/v0.3.0
 [0.2.0]: https://github.com/xenonbyte/code-guidelines/releases/tag/v0.2.0

@@ -1,6 +1,6 @@
 {
   "name": "code-guidelines",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A zero-dependency installer that delivers one explicitly-invoked /code-guidelines skill to Claude Code, Codex, opencode, and Gemini CLI — syncing curated guardrail rules and lint baselines into a target repository.",
   "type": "module",
   "bin": {
