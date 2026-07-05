@@ -1,7 +1,7 @@
 ---
 name: prisma
 description: Semantic Prisma ORM guardrails for client lifecycle, migration safety, and raw-query injection risk.
-appliesTo: ["**/schema.prisma", "**/prisma/**", "**/*.prisma"]
+appliesTo: ["**/schema.prisma", "**/prisma/**", "**/*.prisma", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs"]
 stacks: ["prisma"]
 source: original
 ---

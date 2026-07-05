@@ -1,7 +1,7 @@
 ---
 name: frontend-state
 description: Semantic guardrails for client-side state libraries (Zustand, Redux Toolkit, MobX, Jotai, Pinia, TanStack/SWR) on server-vs-client state boundaries and reactivity pitfalls.
-appliesTo: ["**/store/**", "**/stores/**", "**/*.store.*", "**/*.slice.*"]
+appliesTo: ["**/store/**", "**/stores/**", "**/*.store.*", "**/*.slice.*", "**/*.tsx", "**/*.jsx", "**/*.vue"]
 stacks: ["frontend-state", "frontend"]
 source: original
 ---

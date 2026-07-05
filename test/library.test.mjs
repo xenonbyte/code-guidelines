@@ -122,15 +122,22 @@ test('every library file has complete, well-typed frontmatter', () => {
   }
 });
 
-test('web-perf appliesTo covers frontend template stacks that emit frontend tags', () => {
-  const raw = fs.readFileSync(path.join(libraryDir, 'web-perf.md'), 'utf8');
-  const { data } = parseFrontmatter(raw, 'web-perf.md');
+test('cross-cutting frontend rules cover frontend template stacks that emit frontend tags', () => {
+  const expectations = {
+    'a11y.md': ['**/*.razor'],
+    'web-perf.md': ['**/*.astro', '**/*.razor'],
+  };
 
-  for (const glob of ['**/*.astro', '**/*.razor']) {
-    assert.ok(
-      data.appliesTo.includes(glob),
-      `web-perf.md: appliesTo must include ${glob} so frontend-tagged template files trigger the host-block pointer`
-    );
+  for (const [file, globs] of Object.entries(expectations)) {
+    const raw = fs.readFileSync(path.join(libraryDir, file), 'utf8');
+    const { data } = parseFrontmatter(raw, file);
+
+    for (const glob of globs) {
+      assert.ok(
+        data.appliesTo.includes(glob),
+        `${file}: appliesTo must include ${glob} so frontend-tagged template files trigger the host-block pointer`
+      );
+    }
   }
 });
 

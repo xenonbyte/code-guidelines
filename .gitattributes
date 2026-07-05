@@ -1,1 +1,3 @@
+# Keep build inputs and generated outputs byte-stable on Windows checkouts.
+* text=auto eol=lf
 generated/** text eol=lf
