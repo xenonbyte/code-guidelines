@@ -143,10 +143,12 @@ test('disable-model-invocation appears ONLY on the Claude artifacts', () => {
   }
 });
 
-test('each Claude artifact sets frontmatter name: <command-id>', () => {
-  for (const c of CASES.filter((x) => x.platform === 'claude')) {
+test('each skill-format artifact (Claude + Codex) sets frontmatter name: <command-id>', () => {
+  // Claude and Codex both render the SKILL.md skill shape; Codex reads it as an Agent Skill from
+  // ~/.agents/skills/<id>/SKILL.md, where `name` is required. opencode/gemini use other shapes.
+  for (const c of CASES.filter((x) => x.platform === 'claude' || x.platform === 'codex')) {
     const content = readFileSync(c.path, 'utf8');
-    assert.match(content, new RegExp(`^name: ${c.skillId}$`, 'm'), `claude ${c.skillId} frontmatter must set name: ${c.skillId}`);
+    assert.match(content, new RegExp(`^name: ${c.skillId}$`, 'm'), `${c.platform} ${c.skillId} frontmatter must set name: ${c.skillId}`);
   }
 });
 

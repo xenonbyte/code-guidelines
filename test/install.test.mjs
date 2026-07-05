@@ -18,7 +18,8 @@ import { install, resolveConfig, PLATFORM_PRODUCT_FILE } from '../src/commands/i
 import { uninstall } from '../src/commands/uninstall.mjs';
 import { status } from '../src/commands/status.mjs';
 import { runInstallTransaction } from '../src/install/transaction.mjs';
-import { loadManifest, validateInstallManifest } from '../src/install/manifest.mjs';
+import { loadManifest, validateInstallManifest, saveManifest } from '../src/install/manifest.mjs';
+import { sha256Normalized } from '../src/install/fsutil.mjs';
 
 // ---- helpers ---------------------------------------------------------------------------------
 
@@ -97,7 +98,7 @@ test('install: fresh install writes products + shared assets and a valid manifes
       'product claude v1\n'
     );
     assert.equal(
-      readFileSync(join(cfg.platformRoots.codex, 'code-guidelines.md'), 'utf8'),
+      readFileSync(join(cfg.platformRoots.codex, PLATFORM_PRODUCT_FILE.codex), 'utf8'),
       'product codex v1\n'
     );
     assert.equal(readFileSync(join(cfg.sharedRoot, 'library', 'core.md'), 'utf8'), 'core rule\n');
@@ -503,7 +504,7 @@ test('install: converges idempotently after a simulated mid-commit interruption 
 
     assert.equal(readFileSync(skillPath, 'utf8'), 'product claude v2\n');
     assert.ok(
-      !existsSync(join(cfg.platformRoots.codex, 'code-guidelines.md')),
+      !existsSync(join(cfg.platformRoots.codex, PLATFORM_PRODUCT_FILE.codex)),
       'dropped codex product reconciled away'
     );
     const manifest = await loadManifest(cfg.manifestPath);
@@ -524,16 +525,68 @@ test('install: reinstalling a platform subset removes the no-longer-installed pl
     await captureConsole(() =>
       install(['claude', 'codex'], { home, sources: makeSources(cfg, ['claude', 'codex']) })
     );
-    assert.ok(existsSync(join(cfg.platformRoots.codex, 'code-guidelines.md')));
+    assert.ok(existsSync(join(cfg.platformRoots.codex, PLATFORM_PRODUCT_FILE.codex)));
 
     const { rc } = await captureConsole(() =>
       install(['claude'], { home, sources: makeSources(cfg, ['claude']) })
     );
     assert.equal(rc, 0);
     assert.ok(existsSync(join(cfg.platformRoots.claude, PLATFORM_PRODUCT_FILE.claude)));
-    assert.ok(!existsSync(join(cfg.platformRoots.codex, 'code-guidelines.md')), 'codex removed');
+    assert.ok(!existsSync(join(cfg.platformRoots.codex, PLATFORM_PRODUCT_FILE.codex)), 'codex removed');
     const manifest = await loadManifest(cfg.manifestPath);
     assert.deepEqual(manifest.platforms, ['claude']);
+  } finally {
+    cleanup(home);
+  }
+});
+
+// ---- Codex migration: deprecated ~/.codex/prompts custom prompt → ~/.agents/skills Agent Skill --
+
+test('reinstall migrates Codex off the deprecated ~/.codex/prompts custom prompt, removing the old file', async () => {
+  const home = makeTmpHome();
+  try {
+    const cfg = resolveConfig({ home });
+    // The old custom-prompts dir is a cleanup-only legacy root: allowed for removal, never written.
+    const oldPromptsRoot = join(home, '.codex', 'prompts');
+    assert.ok(cfg.legacyRoots.includes(oldPromptsRoot), 'old codex prompts dir is a legacy root');
+    assert.ok(cfg.allowedRoots.includes(oldPromptsRoot), 'legacy root is allowed (so its owned files can be removed)');
+    assert.ok(
+      !Object.values(cfg.platformRoots).includes(oldPromptsRoot),
+      'legacy root is NOT a platform root (nothing new installs there)'
+    );
+
+    // Simulate a prior install that owned the Codex product at the OLD custom-prompts path.
+    const oldCodexPath = join(oldPromptsRoot, 'code-guidelines.md');
+    const oldContent = 'product codex old\n';
+    mkdirSync(dirname(oldCodexPath), { recursive: true });
+    writeFileSync(oldCodexPath, oldContent);
+    mkdirSync(dirname(cfg.manifestPath), { recursive: true });
+    await saveManifest(cfg.manifestPath, {
+      version: '0.3.0',
+      installedAt: '2026-01-01T00:00:00.000Z',
+      files: [
+        { path: oldCodexPath, sha256: sha256Normalized(oldContent), skill: 'code-guidelines', platform: 'codex' },
+      ],
+      skills: ['code-guidelines'],
+      platforms: ['codex'],
+    });
+
+    const { rc } = await captureConsole(() =>
+      install(['codex'], { home, sources: makeSources(cfg, ['codex']) })
+    );
+    assert.equal(rc, 0);
+    // New Agent Skill written under ~/.agents/skills/…/SKILL.md; the old custom prompt is removed,
+    // not orphaned (it would still surface as a deprecated /prompts:code-guidelines otherwise).
+    assert.ok(
+      existsSync(join(cfg.platformRoots.codex, PLATFORM_PRODUCT_FILE.codex)),
+      'new codex Agent Skill installed under ~/.agents/skills'
+    );
+    assert.ok(!existsSync(oldCodexPath), 'deprecated ~/.codex/prompts file removed on migration');
+    const manifest = await loadManifest(cfg.manifestPath);
+    assert.ok(
+      !manifest.files.some((f) => f.path === oldCodexPath),
+      'old custom-prompt path no longer owned in the manifest'
+    );
   } finally {
     cleanup(home);
   }

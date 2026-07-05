@@ -40,13 +40,20 @@ export const PLATFORM_PRODUCT_FILE = Object.freeze(
 /**
  * Resolve every install path from an injectable home + env (SPEC-PLATFORM-001).
  * - claude:   <home>/.claude/skills/          (one <skill-id>/SKILL.md directory per command)
- * - codex:    <home>/.codex/prompts/          (one <skill-id>.md per command)
+ * - codex:    <home>/.agents/skills/          (one <skill-id>/SKILL.md directory per command — the
+ *             Agent Skills location Codex reads; it replaced the deprecated ~/.codex/prompts/*.md
+ *             custom-prompt slash commands, which newer Codex no longer surfaces the same way)
  * - opencode: <XDG_CONFIG_HOME | <home>/.config>/opencode/commands/  (one <skill-id>.md per command)
  * - gemini:   <home>/.gemini/commands/        (one <skill-id>.toml per command)
  * - shared:   <home>/.code-guidelines/  (full asset set + install-manifest.json; SCOPE-IN-005)
  * `allowedRoots` always spans the shared root plus ALL four platform roots so a partial-platform
- * reinstall can still safely remove no-longer-installed platforms' files. The claude root is the
- * `skills/` parent (not a single skill dir) so all three command skill directories land under it.
+ * reinstall can still safely remove no-longer-installed platforms' files. It also spans `legacyRoots`
+ * — install locations this tool no longer WRITES to but must still be allowed to CLEAN UP: the old
+ * Codex custom-prompts dir (~/.codex/prompts). A reinstall's owned-file removal (transaction Phase
+ * 2c) assertSafeTarget-gates each deletion, so without the old root there the previously-owned
+ * ~/.codex/prompts/code-guidelines*.md would be orphaned (skipped as unsafe) instead of migrated
+ * away. The claude root is the `skills/` parent (not a single skill dir) so all three command skill
+ * directories land under it; the codex root works the same way.
  */
 export function resolveConfig({ home = homedir(), env = process.env } = {}) {
   const sharedRoot = join(home, '.code-guidelines');
@@ -56,16 +63,20 @@ export function resolveConfig({ home = homedir(), env = process.env } = {}) {
       : join(home, '.config');
   const platformRoots = {
     claude: join(home, '.claude', 'skills'),
-    codex: join(home, '.codex', 'prompts'),
+    codex: join(home, '.agents', 'skills'),
     opencode: join(xdg, 'opencode', 'commands'),
     gemini: join(home, '.gemini', 'commands'),
   };
+  // Locations we no longer install to but must be allowed to clean up on reinstall (see the
+  // resolveConfig doc comment above): the deprecated Codex custom-prompts dir.
+  const legacyRoots = [join(home, '.codex', 'prompts')];
   return {
     home,
     sharedRoot,
     platformRoots,
+    legacyRoots,
     manifestPath: join(sharedRoot, 'install-manifest.json'),
-    allowedRoots: [sharedRoot, ...Object.values(platformRoots)],
+    allowedRoots: [sharedRoot, ...Object.values(platformRoots), ...legacyRoots],
   };
 }
 

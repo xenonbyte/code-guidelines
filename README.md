@@ -40,7 +40,7 @@ core command's artifact; the `-lint` and `-distill` commands sit right beside it
 | Platform | Installed skill artifact (core command) | Entry file it manages | Invocation |
 |---|---|---|---|
 | Claude Code | `~/.claude/skills/code-guidelines/SKILL.md` (Markdown + `disable-model-invocation: true`) | `CLAUDE.md` | `/code-guidelines`, `/code-guidelines-lint`, `/code-guidelines-distill` |
-| Codex | `~/.codex/prompts/code-guidelines.md` (custom prompt) | `AGENTS.md` | the same three |
+| Codex | `~/.agents/skills/code-guidelines/SKILL.md` (Agent Skill) | `AGENTS.md` | `/skills` picker or `$code-guidelines` (`-lint` / `-distill`) |
 | opencode | `~/.config/opencode/commands/code-guidelines.md` | `AGENTS.md` | the same three |
 | Gemini CLI | `~/.gemini/commands/code-guidelines.toml` (TOML) | `GEMINI.md` | the same three |
 
