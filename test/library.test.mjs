@@ -124,7 +124,7 @@ test('every library file has complete, well-typed frontmatter', () => {
 
 test('cross-cutting frontend rules cover frontend template stacks that emit frontend tags', () => {
   const expectations = {
-    'a11y.md': ['**/*.razor'],
+    'a11y.md': ['**/*.astro', '**/*.razor'],
     'web-perf.md': ['**/*.astro', '**/*.razor'],
   };
 
