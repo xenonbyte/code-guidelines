@@ -36,6 +36,16 @@ There is **no lint or typecheck step for this repo itself** — `node --test`, `
 guide covering the same ground for non-Claude agents — keep the two consistent when behavior changes.
 This gate (`npm run check` and `node --test`) also runs in CI on every push and pull request.
 
+### Release (CI-driven, `.github/workflows/`)
+
+`ci.yml` runs the gate on every push to `main` and every PR across a 3-OS × Node 20/22/24 matrix.
+`release.yml` fires on `v*` tags: it reruns the gate, then `npm publish --provenance --access public`
+via npm **OIDC trusted publishing** (`permissions: id-token: write`, no `NPM_TOKEN` secret). To cut a
+release: bump `package.json#version` (and `assets/VERSION` if the rule library changed — they move
+independently), commit, then push an annotated `vX.Y.Z` tag; the workflow publishes. One-time
+prerequisite: the package's trusted publisher must be configured on npmjs.com (repo +
+`release.yml`), or the publish step fails with `npm E404` (empty auth identity), not a code error.
+
 ## The three programs (this is the key architecture)
 
 This repo contains three distinct programs that run at three different times. Keep them separate —

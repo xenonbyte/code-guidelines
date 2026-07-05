@@ -18,6 +18,16 @@ not applied to this codebase.
 
 This gate (`npm run check` and `node --test`) also runs in CI on every push and pull request.
 
+### Release (CI-driven, `.github/workflows/`)
+
+- `ci.yml`: the gate on every push to `main` and every PR, matrix 3-OS × Node 20/22/24.
+- `release.yml`: fires on `v*` tags — reruns the gate, then `npm publish --provenance --access
+  public` via npm **OIDC trusted publishing** (`id-token: write`, no `NPM_TOKEN`).
+- To release: bump `package.json#version` (and `assets/VERSION` if the rule library changed — the two
+  version numbers move independently), commit, push an annotated `vX.Y.Z` tag; the workflow publishes.
+- One-time prerequisite: the package's trusted publisher must be configured on npmjs.com (repo +
+  `release.yml`), or the publish step fails with `npm E404` (empty auth identity), not a code error.
+
 ## The deterministic single-source build (most important invariant)
 
 `generated/<platform>/*` is **committed output**, never hand-edited. It is composed from:
